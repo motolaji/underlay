@@ -1,0 +1,23 @@
+{
+  "name": "underlay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Community-owned risk underwriting vault for multi-outcome positions.",
+  "scripts": {
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "lint": "npm --prefix app run lint",
+    "typecheck": "npm --prefix app run typecheck",
+    "workflow:build": "npm --prefix cre-workflow run build",
+    "workflow:simulate": "npm --prefix cre-workflow run simulate",
+    "contracts:build": "forge build"
+  },
+  "keywords": [
+    "underlay",
+    "prediction-markets",
+    "erc4626",
+    "base-sepolia"
+  ],
+  "author": "",
+  "license": "MIT"
+}
