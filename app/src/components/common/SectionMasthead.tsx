@@ -4,15 +4,11 @@ type SectionMastheadProps = {
   body: string;
 };
 
-export function SectionMasthead({
-  eyebrow,
-  title,
-  body,
-}: SectionMastheadProps) {
+export function SectionMasthead({ eyebrow, title, body }: SectionMastheadProps) {
   return (
     <div className="max-w-3xl space-y-4">
       <p className="eyebrow">{eyebrow}</p>
-      <h2 className="text-balance text-3xl leading-tight text-[color:var(--ink)] sm:text-4xl">
+      <h2 className="text-balance text-3xl leading-tight text-[color:var(--text-primary)] sm:text-4xl">
         {title}
       </h2>
       <p className="max-w-2xl text-base leading-7 sm:text-lg">{body}</p>

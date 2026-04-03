@@ -4,6 +4,9 @@ export type PreviewMarket = {
   question: string;
   closesAtLabel: string;
   note: string;
+  routeLabel: string;
+  availableCapacityLabel: string;
+  riskBand: "Low" | "Medium" | "High";
   outcomes: Array<{
     outcomeId: string;
     label: string;

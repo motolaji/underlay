@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 1 foundation complete
+- Current phase: Round 1 foundation and frontend IA redesign complete
 - Last updated: 2026-04-03
 
 ## Completed
@@ -39,6 +39,21 @@
 - Added shared providers, stores, types, preview market browser, and underwriting slip validation scaffold
 - Added Reown AppKit + wagmi foundation in `app/src/lib/wagmi.ts` and `app/src/providers/AppProviders.tsx`
 
+### 2026-04-03 - Frontend IA and visual redesign
+
+- Split public homepage from product workspace
+- Moved the live underwriting experience to `/app`
+- Added nested app routes:
+  - `app/src/app/app/page.tsx`
+  - `app/src/app/app/lp/page.tsx`
+  - `app/src/app/app/positions/page.tsx`
+- Added redirects from legacy `app/src/app/lp/page.tsx` and `app/src/app/positions/page.tsx`
+- Reworked the homepage into a real landing page with `Open App` CTA
+- Replaced the warm editorial paper treatment with a lighter off-white, lower-radius, more contemporary product surface system
+- Updated fonts to a modern sans-led stack in `app/src/app/layout.tsx`
+- Added separate marketing and workspace shells
+- Replaced the sticky betslip concept with a closable cart drawer and floating cart dock
+
 ### 2026-04-03 - CRE workflow foundation
 
 - Scaffolded `cre-workflow/` as an npm-managed TypeScript package
@@ -52,6 +67,7 @@
 - `app`: `npm run build` - passed
 - `app`: `npm run typecheck` - passed
 - `cre-workflow`: `npm run build` - passed
+- `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
 
 ## In Progress
 
@@ -81,10 +97,11 @@
 - Package manager for repo workflows: npm
 - Frontend tone: editorial plus consumer
 - Frontend theme: warm light newsprint
-- Homepage structure: hybrid editorial landing plus live browser
-- Homepage priority: protocol credibility first
+- Homepage structure: real homepage with CTA into `/app`
+- App workspace: dedicated `/app` route with closable cart UX
 - Sponsor presentation: plain-text capability labels, not logo walls
 - Position leg limits should be global config, planned default `1-10`
+- Visual system: off-white base, modern fonts, lower radius, contemporary product UI
 
 ## Blockers
 

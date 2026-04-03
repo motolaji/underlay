@@ -1,8 +1,8 @@
-import { AppShell } from "@/components/shell/AppShell";
-import { SectionMasthead } from "@/components/common/SectionMasthead";
 import { InfrastructureRail } from "@/components/home/InfrastructureRail";
+import { SectionMasthead } from "@/components/common/SectionMasthead";
+import { MarketingShell } from "@/components/shell/MarketingShell";
 import { infrastructureItems } from "@/content/home";
-import { POSITION_RULES, TESTNET_VAULT_CONFIG } from "@/lib/constants";
+import { DELAY_CONFIG, POSITION_RULES, TESTNET_VAULT_CONFIG } from "@/lib/constants";
 import { formatBps, formatUsdc } from "@/lib/format";
 
 const configRows = [
@@ -15,51 +15,60 @@ const configRows = [
   ["World ID gate", formatUsdc(TESTNET_VAULT_CONFIG.worldIdGateRaw)],
   [
     "Leg rules",
-    `${POSITION_RULES.minLegsPerPosition}-${POSITION_RULES.maxLegsPerPosition} outcomes`,
+    `${POSITION_RULES.minLegsPerPosition}–${POSITION_RULES.maxLegsPerPosition} outcomes per position`,
+  ],
+  [
+    "Low-risk delay",
+    `${Math.floor(DELAY_CONFIG.lowDelaySeconds / 60)} min`,
+  ],
+  [
+    "High-risk delay",
+    `${Math.floor(DELAY_CONFIG.highDelaySeconds / 3600)}h`,
   ],
 ] as const;
 
 export default function ProtocolPage() {
   return (
-    <AppShell>
-      <section className="section-shell pt-4 space-y-8">
+    <MarketingShell>
+      <section className="section-shell space-y-8 pt-4">
         <SectionMasthead
           eyebrow="Mechanics"
-          title="Underlay is easier to trust when the machinery stays visible."
-          body="This page exists for judges, builders, and first-time users who need a fast walkthrough of how pricing, reserve policy, identity gating, and settlement fit together."
+          title="The vault, the reserve, and the settlement layer."
+          body="Underlay prices multi-outcome positions, holds reserves for payout exposure, and settles through a delay-aware onchain workflow. All parameters are protocol config — nothing is hidden."
         />
 
-        <div className="paper-panel overflow-hidden p-6 sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <p className="data-label">What Underlay is</p>
-              <p className="mt-4 text-base leading-8 text-[color:var(--ink)]">
-                The vault and settlement infrastructure that underwrites a
-                position after outcomes are selected.
-              </p>
-            </div>
-            <div>
-              <p className="data-label">What Underlay is not</p>
-              <p className="mt-4 text-base leading-8 text-[color:var(--ink)]">
-                Not a prediction market, not a parlay exchange, and not a
-                database-backed offchain bookmaker.
-              </p>
-            </div>
-          </div>
+        {/* What it is / isn't */}
+        <div className="grid gap-px border border-[color:var(--border-subtle)] lg:grid-cols-2">
+          <article className="bg-[color:var(--bg-surface)] p-6">
+            <p className="data-label">What Underlay is</p>
+            <p className="mt-4 text-base leading-8 text-[color:var(--text-primary)]">
+              An ERC-4626 vault and settlement layer that underwrites multi-outcome positions. It prices risk, enforces reserve and liability limits, and releases settlement through Chainlink CRE.
+            </p>
+          </article>
+          <article className="bg-[color:var(--bg-surface)] p-6">
+            <p className="data-label">What Underlay is not</p>
+            <p className="mt-4 text-base leading-8 text-[color:var(--text-primary)]">
+              Not a prediction market, not an offchain bookmaker, not a parlay platform. Underlay does not set odds or run markets — Polymarket does that. Underlay underwrites the combined exposure.
+            </p>
+          </article>
         </div>
 
-        <div className="paper-panel p-6 sm:p-8">
-          <p className="data-label">Vault config</p>
-          <div className="mt-6 divide-y divide-[color:var(--border)]">
+        {/* Vault config */}
+        <div className="border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-6 sm:p-8">
+          <p className="data-label">Vault Config</p>
+          <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+            All parameters are set at deployment and readable onchain.
+          </p>
+          <div className="mt-6 divide-y divide-[color:var(--border-subtle)]">
             {configRows.map(([label, value]) => (
               <div
                 key={label}
-                className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between"
               >
-                <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
                   {label}
                 </p>
-                <p className="tabular text-base text-[color:var(--ink)]">
+                <p className="tabular text-sm text-[color:var(--text-primary)]">
                   {value}
                 </p>
               </div>
@@ -67,8 +76,77 @@ export default function ProtocolPage() {
           </div>
         </div>
 
+        {/* Quote lifecycle + trust boundaries */}
+        <div className="grid gap-px border border-[color:var(--border-subtle)] lg:grid-cols-2">
+          <article className="bg-[color:var(--bg-surface)] p-6">
+            <p className="data-label">Position lifecycle</p>
+            <div className="mt-5 space-y-2.5">
+              {[
+                "Bettor selects outcomes from Polymarket markets via Gamma API.",
+                "0G Compute verifies risk score. 0G Storage pins the audit payload.",
+                "Vault prices the combined position using utilisation, correlation factor, and config caps.",
+                "Position is locked with a quote and stake is transferred.",
+                "Chainlink CRE waits through the risk-tier delay window.",
+                "Reserve pays out winning positions. Losing stakes sweep into the vault.",
+              ].map((step, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="mt-0.5 shrink-0 font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <p className="text-sm leading-6 text-[color:var(--text-secondary)]">{step}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="bg-[color:var(--bg-surface)] p-6">
+            <p className="data-label">Trust model</p>
+            <div className="mt-5 space-y-2.5">
+              {[
+                "Canonical position state lives onchain — no offchain database required.",
+                "Audit receipts and risk payloads are pinned to 0G Storage.",
+                "World ID prevents Sybil attacks above the stake gate.",
+                "Draft betslip state lives only in the browser until submission.",
+                "Reserve ratio and liability cap are enforced by smart contract, not application logic.",
+                "Settlement delay windows are encoded in protocol config, not business rules.",
+              ].map((item, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="mt-0.5 shrink-0 font-mono text-[10px] text-[color:var(--text-tertiary)]">—</span>
+                  <p className="text-sm leading-6 text-[color:var(--text-secondary)]">{item}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        {/* Capital model */}
+        <div className="border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-6">
+          <p className="data-label">Capital model</p>
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex h-5 flex-1 overflow-hidden">
+              <div
+                className="flex h-full items-center justify-center bg-[color:var(--risk-medium)] text-[10px] font-mono text-white"
+                style={{ width: `${TESTNET_VAULT_CONFIG.reserveBps / 100}%` }}
+              >
+                Reserve
+              </div>
+              <div
+                className="flex h-full items-center justify-center bg-[color:var(--accent-blue)] text-[10px] font-mono text-white"
+                style={{ width: `${100 - TESTNET_VAULT_CONFIG.reserveBps / 100}%` }}
+              >
+                Idle / Deployed
+              </div>
+            </div>
+            <span className="shrink-0 font-mono text-[11px] text-[color:var(--text-secondary)]">
+              {formatBps(TESTNET_VAULT_CONFIG.reserveBps)} reserve
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-7 text-[color:var(--text-secondary)]">
+            A fixed reserve portion of vault TVL is held as immediate payout liquidity. The remaining idle capital is eligible for Aave yield routing once integration is live.
+          </p>
+        </div>
+
         <InfrastructureRail items={infrastructureItems} />
       </section>
-    </AppShell>
+    </MarketingShell>
   );
 }

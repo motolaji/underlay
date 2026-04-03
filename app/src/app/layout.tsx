@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { DM_Mono, Inter, Syne } from "next/font/google";
 import { AppProviders } from "@/providers/AppProviders";
 import "./globals.css";
 
-const display = Fraunces({
+const display = Syne({
   subsets: ["latin"],
+  weight: ["600", "700", "800"],
   variable: "--font-display",
 });
 
-const sans = IBM_Plex_Sans({
+const sans = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600"],
   variable: "--font-sans",
 });
 
-const mono = IBM_Plex_Mono({
+const mono = DM_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-mono",

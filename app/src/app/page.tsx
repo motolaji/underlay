@@ -1,75 +1,138 @@
-import { AppShell } from "@/components/shell/AppShell";
+import Link from "next/link";
 import { CapabilityRail } from "@/components/shell/CapabilityRail";
 import { ProtocolStrip } from "@/components/shell/ProtocolStrip";
-import { HeroStory } from "@/components/home/HeroStory";
-import { HowItWorksBand } from "@/components/home/HowItWorksBand";
 import { InfrastructureRail } from "@/components/home/InfrastructureRail";
-import { RiskControlsPanel } from "@/components/home/RiskControlsPanel";
+import { HowItWorksBand } from "@/components/home/HowItWorksBand";
 import { SectionMasthead } from "@/components/common/SectionMasthead";
-import { MarketBrowser } from "@/components/markets/MarketBrowser";
-import { SlipPanel } from "@/components/slip/SlipPanel";
+import { MarketingShell } from "@/components/shell/MarketingShell";
 import {
+  audienceSplit,
   capabilityRail,
   heroContent,
+  homeHighlights,
   howItWorksSteps,
   infrastructureItems,
   protocolMetrics,
-  riskControlItems,
 } from "@/content/home";
 
 export default function Home() {
   return (
-    <AppShell>
+    <MarketingShell>
+      {/* Hero */}
       <section className="section-shell pt-4">
-        <HeroStory {...heroContent} />
+        <div className="border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] p-8 sm:p-10 lg:p-12">
+          <div className="grid gap-10 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
+            <div className="space-y-6">
+              <p className="eyebrow">{heroContent.eyebrow}</p>
+              <h1
+                className="max-w-3xl text-balance text-5xl leading-[0.92] text-[color:var(--text-primary)] sm:text-6xl lg:text-7xl"
+                style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}
+              >
+                {heroContent.headline}
+              </h1>
+              <p className="max-w-2xl text-base leading-8 text-[color:var(--text-secondary)] sm:text-lg">
+                {heroContent.deck}
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href={heroContent.primaryCta.href}
+                  className="bg-white px-5 py-3 text-sm font-medium text-black transition-colors duration-150 hover:bg-gray-100"
+                >
+                  {heroContent.primaryCta.label}
+                </Link>
+                <Link
+                  href={heroContent.secondaryCta.href}
+                  className="border border-[color:var(--border-default)] px-5 py-3 text-sm font-medium text-[color:var(--text-secondary)] transition-colors duration-150 hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+                >
+                  {heroContent.secondaryCta.label}
+                </Link>
+              </div>
+            </div>
+
+            <div className="space-y-px border border-[color:var(--border-subtle)]">
+              {homeHighlights.map((item) => (
+                <article key={item.title} className="bg-[color:var(--bg-elevated)] p-5">
+                  <h3
+                    className="text-sm font-semibold text-[color:var(--text-primary)]"
+                    style={{ fontFamily: "var(--font-display)" }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6">{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
 
+      {/* Capability rail */}
       <section className="section-shell">
         <CapabilityRail items={capabilityRail} />
       </section>
 
+      {/* Bettor / LP split */}
       <section className="section-shell">
+        <div className="mb-6">
+          <p className="eyebrow mb-3">Two audiences, one protocol</p>
+          <h2
+            className="text-2xl text-[color:var(--text-primary)] sm:text-3xl"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Bettors build positions. LPs earn yield.
+          </h2>
+        </div>
+        <div className="grid gap-px border border-[color:var(--border-subtle)] lg:grid-cols-2">
+          {audienceSplit.map((audience) => (
+            <div key={audience.role} className="bg-[color:var(--bg-surface)] p-6">
+              <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+                {audience.role}
+              </p>
+              <h3
+                className="mt-3 text-xl text-[color:var(--text-primary)]"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {audience.headline}
+              </h3>
+              <p className="mt-3 text-sm leading-7">{audience.body}</p>
+              <div className="mt-6">
+                <Link
+                  href={audience.cta.href}
+                  className="inline-block border border-[color:var(--border-default)] px-4 py-2 text-sm font-medium text-[color:var(--text-secondary)] transition-colors duration-150 hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+                >
+                  {audience.cta.label} →
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Protocol metrics */}
+      <section className="section-shell">
+        <p className="eyebrow mb-4">Protocol config (testnet)</p>
         <ProtocolStrip metrics={protocolMetrics} />
       </section>
 
-      <section id="how-it-works" className="section-shell space-y-8">
+      {/* How it works */}
+      <section className="section-shell space-y-6">
         <SectionMasthead
           eyebrow="How it works"
-          title="Protocol mechanics first, trading surface second."
-          body="The homepage leads with the risk desk itself: how input data becomes a scored position, how reserve and liability limits stay visible, and where settlement delay enters the flow."
+          title="From market signal to onchain settlement — four steps."
+          body="Every step in the position lifecycle has a visible onchain or verifiable offchain counterpart. Nothing happens in an opaque database."
         />
         <HowItWorksBand steps={howItWorksSteps} />
       </section>
 
-      <section className="section-shell space-y-8">
-        <SectionMasthead
-          eyebrow="Risk controls"
-          title="Visible safeguards beat hidden assumptions."
-          body="Underlay exposes reserve policy, payout caps, world-ID gating, and liability controls as product features, not buried implementation details."
-        />
-        <RiskControlsPanel items={riskControlItems} />
-      </section>
-
-      <section id="market-browser" className="section-shell space-y-8">
-        <SectionMasthead
-          eyebrow="Live workspace"
-          title="An editorial browser that becomes an underwriting slip."
-          body="This scaffold already supports the warm newsprint layout, local slip validation, and wallet foundation. Live Gamma markets, AI scores, and onchain quote execution land in later rounds."
-        />
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
-          <MarketBrowser />
-          <SlipPanel />
-        </div>
-      </section>
-
-      <section className="section-shell space-y-8">
+      {/* Infrastructure */}
+      <section className="section-shell space-y-6 pb-4">
         <SectionMasthead
           eyebrow="Infrastructure"
-          title="Every sponsor capability maps to a visible product responsibility."
-          body="The interface frames integrations as protocol capabilities rather than a logo wall, keeping the story grounded in user trust and settlement correctness."
+          title="Every integration maps to a specific protocol responsibility."
+          body="Seven protocol partners each handle a distinct layer. No single point of trust or failure."
         />
         <InfrastructureRail items={infrastructureItems} />
       </section>
-    </AppShell>
+    </MarketingShell>
   );
 }

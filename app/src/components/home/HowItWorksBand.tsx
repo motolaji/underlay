@@ -4,14 +4,16 @@ type HowItWorksBandProps = {
 
 export function HowItWorksBand({ steps }: HowItWorksBandProps) {
   return (
-    <div className="grid gap-4 xl:grid-cols-4">
+    <div className="grid gap-px border border-[color:var(--border-subtle)] xl:grid-cols-4">
       {steps.map((step, index) => (
         <article
           key={step.title}
-          className="rounded-[24px] border border-[color:var(--border)] bg-[color:rgba(255,255,255,0.4)] p-5"
+          className="bg-[color:var(--bg-surface)] p-5"
         >
-          <p className="data-label">Step 0{index + 1}</p>
-          <h3 className="mt-4 text-2xl text-[color:var(--ink)]">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+            0{index + 1}
+          </p>
+          <h3 className="mt-4 text-xl text-[color:var(--text-primary)]">
             {step.title}
           </h3>
           <p className="mt-3 text-sm leading-7">{step.body}</p>
