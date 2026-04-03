@@ -25,6 +25,9 @@ Underlay is a community-owned underwriting vault for multi-outcome prediction ma
 - Wallet stack is Reown AppKit plus wagmi
 - Frontend uses Next.js 14 App Router and Tailwind
 - USDC always uses 6 decimals
+- Global position leg rules are config-driven and currently planned as min `1`, max `10`
+- Frontend and client-side web3 use `viem` only
+- If a server-side SDK requires `ethers`, keep it isolated to server-only integration files
 
 ## Stack
 
@@ -56,10 +59,18 @@ underlay/
 
 ## Frontend direction
 
-- Tone: editorial plus consumer
-- Theme: warm light newsprint
-- Home route: hybrid editorial landing plus live browser
-- Prioritize protocol credibility before user action
+- Tone: contemporary product UI with strong consumer clarity
+- Theme: light off-white base with white surfaces, lower radius, and sharper system surfaces
+- Public routes:
+  - `/` = real homepage
+  - `/protocol` = public mechanics and trust page
+- App routes:
+  - `/app` = underwriting workspace
+  - `/app/lp` = LP vault operations
+  - `/app/positions` = position ledger
+- The homepage is not the live market workspace
+- The underwriting flow lives inside `/app`
+- The betslip behaves like a closable cart or drawer, not a permanently fixed right rail
 - Show sponsor capabilities as plain text, not logo walls
 
 ## Data boundaries

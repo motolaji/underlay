@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
     const body: RiskRequest = await request.json()
 
     // Validate input
-    if (!body.legs || body.legs.length < 2) {
+    if (!body.legs || body.legs.length < 1) {
       return NextResponse.json(
-        { error: "Minimum 2 legs required" },
+        { error: "Minimum 1 legs required" },
         { status: 400 }
       )
     }

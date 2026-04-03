@@ -1,10 +1,25 @@
 # Skill: LP Dashboard Page
 
 ## When to Use This Skill
-Use when building app/lp/page.tsx and its components. This page serves liquidity providers — shows vault stats, their share position, and deposit/withdrawal forms.
+
+Use when building `app/app/lp/page.tsx` and its components. This page serves liquidity providers — shows vault stats, their share position, and deposit/withdrawal forms.
 
 ## Context
-LPs need to see: their share balance and USDC value, current share price, rolling APY (7d and 30d), vault utilisation meter, risk composition breakdown, and pool AI flags. They can deposit USDC or request withdrawal. All vault data is read directly from VaultManager.sol onchain. Read FRONTEND_DESIGN_PROMPT.md before building.
+
+The LP dashboard lives under the app shell at `/app/lp`. It should feel like vault operations, not a marketing page. Focus on current vault state, reserve posture, allocation, LP share position, and deposit/withdraw workflows. Read FRONTEND_DESIGN_PROMPT.md before building.
+
+LPs need to see:
+
+- share balance and USDC value
+- current share price
+- reserve posture
+- utilisation
+- open liability
+- available capacity
+- withdrawal request state
+- deposit and withdraw actions
+
+Historical APY can be added later, but current-state vault operations are the MVP priority.
 
 ---
 
@@ -34,34 +49,76 @@ Derived on frontend:
 ## lib/hooks/useVaultStats.ts
 
 ```typescript
-"use client"
+"use client";
 
-import { useReadContracts, useAccount, useChainId } from "wagmi"
-import { ADDRESSES, VAULT_MANAGER_ABI } from "@/lib/contracts"
-import { formatUsdc } from "@/lib/utils"
+import { useReadContracts, useAccount, useChainId } from "wagmi";
+import { ADDRESSES, VAULT_MANAGER_ABI } from "@/lib/contracts";
+import { formatUsdc } from "@/lib/utils";
 
 export function useVaultStats() {
-  const { address } = useAccount()
-  const chainId = useChainId()
-  const vaultAddress = ADDRESSES[chainId as keyof typeof ADDRESSES]?.vaultManager as `0x${string}`
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const vaultAddress = ADDRESSES[chainId as keyof typeof ADDRESSES]
+    ?.vaultManager as `0x${string}`;
 
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "totalAssets" },
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "totalSupply" },
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "openLiability" },
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "utilizationBps" },
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "availableCapacity" },
-      { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "isAcceptingPositions" },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "totalAssets",
+      },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "totalSupply",
+      },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "openLiability",
+      },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "utilizationBps",
+      },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "availableCapacity",
+      },
+      {
+        address: vaultAddress,
+        abi: VAULT_MANAGER_ABI,
+        functionName: "isAcceptingPositions",
+      },
       // LP-specific reads
-      ...(address ? [
-        { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "balanceOf", args: [address] },
-        { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "convertToAssets", args: [1_000_000n] }, // price of 1 share
-        { address: vaultAddress, abi: VAULT_MANAGER_ABI, functionName: "withdrawalRequestTime", args: [address] },
-      ] : [])
+      ...(address
+        ? [
+            {
+              address: vaultAddress,
+              abi: VAULT_MANAGER_ABI,
+              functionName: "balanceOf",
+              args: [address],
+            },
+            {
+              address: vaultAddress,
+              abi: VAULT_MANAGER_ABI,
+              functionName: "convertToAssets",
+              args: [1_000_000n],
+            }, // price of 1 share
+            {
+              address: vaultAddress,
+              abi: VAULT_MANAGER_ABI,
+              functionName: "withdrawalRequestTime",
+              args: [address],
+            },
+          ]
+        : []),
     ],
-    query: { refetchInterval: 15_000 } // refresh every 15s
-  })
+    query: { refetchInterval: 15_000 }, // refresh every 15s
+  });
 
   const [
     totalAssets,
@@ -72,31 +129,37 @@ export function useVaultStats() {
     isAcceptingPositions,
     lpShares,
     sharePrice,
-    withdrawalRequestTime
-  ] = data?.map(d => d.result) ?? []
+    withdrawalRequestTime,
+  ] = data?.map((d) => d.result) ?? [];
 
   return {
     isLoading,
     refetch,
     vault: {
-      tvl: totalAssets as bigint ?? 0n,
-      totalSupply: totalSupply as bigint ?? 0n,
-      openLiability: openLiability as bigint ?? 0n,
-      utilizationBps: utilizationBps as bigint ?? 0n,
-      availableCapacity: availableCapacity as bigint ?? 0n,
-      isAcceptingPositions: isAcceptingPositions as boolean ?? false,
-      sharePrice: sharePrice as bigint ?? 1_000_000n, // default $1.00
+      tvl: (totalAssets as bigint) ?? 0n,
+      totalSupply: (totalSupply as bigint) ?? 0n,
+      openLiability: (openLiability as bigint) ?? 0n,
+      utilizationBps: (utilizationBps as bigint) ?? 0n,
+      availableCapacity: (availableCapacity as bigint) ?? 0n,
+      isAcceptingPositions: (isAcceptingPositions as boolean) ?? false,
+      sharePrice: (sharePrice as bigint) ?? 1_000_000n, // default $1.00
     },
-    lp: address ? {
-      shares: lpShares as bigint ?? 0n,
-      usdcValue: address && lpShares
-        ? (lpShares as bigint) * (sharePrice as bigint ?? 1_000_000n) / 1_000_000n
-        : 0n,
-      withdrawalRequestedAt: (withdrawalRequestTime as bigint ?? 0n) > 0n
-        ? Number(withdrawalRequestTime as bigint) * 1000
-        : null
-    } : null
-  }
+    lp: address
+      ? {
+          shares: (lpShares as bigint) ?? 0n,
+          usdcValue:
+            address && lpShares
+              ? ((lpShares as bigint) *
+                  ((sharePrice as bigint) ?? 1_000_000n)) /
+                1_000_000n
+              : 0n,
+          withdrawalRequestedAt:
+            ((withdrawalRequestTime as bigint) ?? 0n) > 0n
+              ? Number(withdrawalRequestTime as bigint) * 1000
+              : null,
+        }
+      : null,
+  };
 }
 ```
 
@@ -107,27 +170,27 @@ export function useVaultStats() {
 The utilisation meter — colour changes based on level:
 
 ```typescript
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 interface VaultMeterProps {
-  utilizationBps: bigint
-  openLiability: bigint
-  tvl: bigint
+  utilizationBps: bigint;
+  openLiability: bigint;
+  tvl: bigint;
 }
 
-export function VaultMeter({ utilizationBps, openLiability, tvl }: VaultMeterProps) {
-  const pct = Number(utilizationBps) / 100 // e.g. 4200 -> 42.00
-  const pctDisplay = pct.toFixed(1)
+export function VaultMeter({
+  utilizationBps,
+  openLiability,
+  tvl,
+}: VaultMeterProps) {
+  const pct = Number(utilizationBps) / 100; // e.g. 4200 -> 42.00
+  const pctDisplay = pct.toFixed(1);
 
   const barColour =
-    pct < 30 ? "bg-green-500" :
-    pct < 70 ? "bg-amber-500" :
-    "bg-red-500"
+    pct < 30 ? "bg-green-500" : pct < 70 ? "bg-amber-500" : "bg-red-500";
 
   const textColour =
-    pct < 30 ? "text-green-400" :
-    pct < 70 ? "text-amber-400" :
-    "text-red-400"
+    pct < 30 ? "text-green-400" : pct < 70 ? "text-amber-400" : "text-red-400";
 
   return (
     <div className="space-y-3">
@@ -166,7 +229,7 @@ export function VaultMeter({ utilizationBps, openLiability, tvl }: VaultMeterPro
         </p>
       )}
     </div>
-  )
+  );
 }
 ```
 
@@ -175,18 +238,23 @@ export function VaultMeter({ utilizationBps, openLiability, tvl }: VaultMeterPro
 ## components/lp/PoolStats.tsx
 
 ```typescript
-import { formatUsdc, formatBps } from "@/lib/utils"
+import { formatUsdc, formatBps } from "@/lib/utils";
 
 interface PoolStatsProps {
-  tvl: bigint
-  openLiability: bigint
-  sharePrice: bigint
-  isAcceptingPositions: boolean
+  tvl: bigint;
+  openLiability: bigint;
+  sharePrice: bigint;
+  isAcceptingPositions: boolean;
 }
 
-export function PoolStats({ tvl, openLiability, sharePrice, isAcceptingPositions }: PoolStatsProps) {
+export function PoolStats({
+  tvl,
+  openLiability,
+  sharePrice,
+  isAcceptingPositions,
+}: PoolStatsProps) {
   // Share price formatted to 4 decimal places
-  const sharePriceDisplay = (Number(sharePrice) / 1_000_000).toFixed(4)
+  const sharePriceDisplay = (Number(sharePrice) / 1_000_000).toFixed(4);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -199,14 +267,14 @@ export function PoolStats({ tvl, openLiability, sharePrice, isAcceptingPositions
         colour={isAcceptingPositions ? "text-green-400" : "text-amber-400"}
       />
     </div>
-  )
+  );
 }
 
 interface MetricProps {
-  label: string
-  value: string
-  mono?: boolean
-  colour?: string
+  label: string;
+  value: string;
+  mono?: boolean;
+  colour?: string;
 }
 
 function Metric({ label, value, mono, colour }: MetricProps) {
@@ -215,11 +283,15 @@ function Metric({ label, value, mono, colour }: MetricProps) {
       <span className="text-xs font-mono text-text-secondary uppercase tracking-wider">
         {label}
       </span>
-      <span className={`text-xl font-display font-bold ${colour ?? "text-text-primary"} ${mono ? "font-mono" : ""}`}>
+      <span
+        className={`text-xl font-display font-bold ${
+          colour ?? "text-text-primary"
+        } ${mono ? "font-mono" : ""}`}
+      >
         {value}
       </span>
     </div>
-  )
+  );
 }
 ```
 
@@ -228,75 +300,80 @@ function Metric({ label, value, mono, colour }: MetricProps) {
 ## components/lp/DepositForm.tsx
 
 ```typescript
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useWriteContract, useWaitForTransactionReceipt, useAccount } from "wagmi"
-import { parseUnits } from "viem"
-import { ADDRESSES, VAULT_MANAGER_ABI, ERC20_ABI } from "@/lib/contracts"
-import { useChainId } from "wagmi"
+import { useState } from "react";
+import {
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+} from "wagmi";
+import { parseUnits } from "viem";
+import { ADDRESSES, VAULT_MANAGER_ABI, ERC20_ABI } from "@/lib/contracts";
+import { useChainId } from "wagmi";
 
 interface DepositFormProps {
-  sharePrice: bigint
-  onSuccess: () => void
+  sharePrice: bigint;
+  onSuccess: () => void;
 }
 
 export function DepositForm({ sharePrice, onSuccess }: DepositFormProps) {
-  const { address } = useAccount()
-  const chainId = useChainId()
-  const [amount, setAmount] = useState("")
-  const [step, setStep] = useState<"input" | "approve" | "deposit" | "success">("input")
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const [amount, setAmount] = useState("");
+  const [step, setStep] = useState<"input" | "approve" | "deposit" | "success">(
+    "input"
+  );
 
-  const addrs = ADDRESSES[chainId as keyof typeof ADDRESSES]
+  const addrs = ADDRESSES[chainId as keyof typeof ADDRESSES];
 
-  const { writeContract: approve, data: approveHash } = useWriteContract()
-  const { writeContract: deposit, data: depositHash } = useWriteContract()
+  const { writeContract: approve, data: approveHash } = useWriteContract();
+  const { writeContract: deposit, data: depositHash } = useWriteContract();
 
   const { isLoading: isApproving } = useWaitForTransactionReceipt({
     hash: approveHash,
-    onReplaced: () => setStep("deposit")
-  })
+    onReplaced: () => setStep("deposit"),
+  });
 
-  const amountBigInt = amount ? parseUnits(amount, 6) : 0n
-  const estimatedShares = sharePrice > 0n
-    ? (amountBigInt * 1_000_000n) / sharePrice
-    : 0n
+  const amountBigInt = amount ? parseUnits(amount, 6) : 0n;
+  const estimatedShares =
+    sharePrice > 0n ? (amountBigInt * 1_000_000n) / sharePrice : 0n;
 
   async function handleDeposit() {
-    if (!amount || !address) return
+    if (!amount || !address) return;
 
     // Step 1: Approve USDC
-    setStep("approve")
+    setStep("approve");
     approve({
       address: addrs.usdc as `0x${string}`,
       abi: ERC20_ABI,
       functionName: "approve",
-      args: [addrs.vaultManager as `0x${string}`, amountBigInt]
-    })
+      args: [addrs.vaultManager as `0x${string}`, amountBigInt],
+    });
   }
 
   // After approval confirmed, execute deposit
   useWaitForTransactionReceipt({
     hash: approveHash,
     onReplaced: () => {
-      setStep("deposit")
+      setStep("deposit");
       deposit({
         address: addrs.vaultManager as `0x${string}`,
         abi: VAULT_MANAGER_ABI,
         functionName: "deposit",
-        args: [amountBigInt, address]
-      })
-    }
-  })
+        args: [amountBigInt, address],
+      });
+    },
+  });
 
   // After deposit confirmed
   useWaitForTransactionReceipt({
     hash: depositHash,
     onReplaced: () => {
-      setStep("success")
-      onSuccess()
-    }
-  })
+      setStep("success");
+      onSuccess();
+    },
+  });
 
   return (
     <div className="space-y-4">
@@ -335,7 +412,8 @@ export function DepositForm({ sharePrice, onSuccess }: DepositFormProps) {
         {/* Share preview */}
         {amountBigInt > 0n && (
           <p className="text-xs font-mono text-text-tertiary">
-            You will receive ~{(Number(estimatedShares) / 1_000_000).toFixed(2)} UVS shares
+            You will receive ~{(Number(estimatedShares) / 1_000_000).toFixed(2)}{" "}
+            UVS shares
           </p>
         )}
       </div>
@@ -352,44 +430,47 @@ export function DepositForm({ sharePrice, onSuccess }: DepositFormProps) {
           disabled:opacity-40 disabled:cursor-not-allowed
         "
       >
-        {step === "approve" && isApproving ? "Approving USDC• • •" :
-         step === "deposit" ? "Depositing• • •" :
-         step === "success" ? "✓ Deposited" :
-         "Deposit USDC"}
+        {step === "approve" && isApproving
+          ? "Approving USDC• • •"
+          : step === "deposit"
+          ? "Depositing• • •"
+          : step === "success"
+          ? "✓ Deposited"
+          : "Deposit USDC"}
       </button>
     </div>
-  )
+  );
 }
 ```
 
 ---
 
-## app/lp/page.tsx
+## app/app/lp/page.tsx
 
 ```typescript
-"use client"
+"use client";
 
-import { useVaultStats } from "@/lib/hooks/useVaultStats"
-import { VaultMeter } from "@/components/lp/VaultMeter"
-import { PoolStats } from "@/components/lp/PoolStats"
-import { DepositForm } from "@/components/lp/DepositForm"
-import { formatUsdc } from "@/lib/utils"
-import { useAccount } from "wagmi"
+import { useVaultStats } from "@/lib/hooks/useVaultStats";
+import { VaultMeter } from "@/components/lp/VaultMeter";
+import { PoolStats } from "@/components/lp/PoolStats";
+import { DepositForm } from "@/components/lp/DepositForm";
+import { formatUsdc } from "@/lib/utils";
+import { useAccount } from "wagmi";
 
 export default function LpDashboardPage() {
-  const { isConnected } = useAccount()
-  const { vault, lp, isLoading, refetch } = useVaultStats()
+  const { isConnected } = useAccount();
+  const { vault, lp, isLoading, refetch } = useVaultStats();
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-display font-bold text-text-primary">
           Liquidity Vault
         </h1>
         <p className="text-sm text-text-secondary mt-1">
-          Deposit USDC to become the house. Earn yield from losing positions + Aave base APY.
+          Deposit USDC to become the house. Earn yield from losing positions +
+          Aave base APY.
         </p>
       </div>
 
@@ -446,13 +527,17 @@ export default function LpDashboardPage() {
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-mono text-text-tertiary">Shares</span>
+              <span className="text-xs font-mono text-text-tertiary">
+                Shares
+              </span>
               <span className="text-lg font-mono font-medium text-text-primary">
                 {(Number(lp.shares) / 1_000_000).toFixed(2)} UVS
               </span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-mono text-text-tertiary">USDC Value</span>
+              <span className="text-xs font-mono text-text-tertiary">
+                USDC Value
+              </span>
               <span className="text-lg font-mono font-medium text-text-primary">
                 ${formatUsdc(lp.usdcValue)}
               </span>
@@ -464,7 +549,13 @@ export default function LpDashboardPage() {
             <div className="p-3 border border-amber-900 bg-amber-950">
               <p className="text-xs font-mono text-amber-400">
                 Withdrawal requested. Available in ~
-                {Math.max(0, Math.ceil((lp.withdrawalRequestedAt + 86400000 - Date.now()) / 3600000))}hr
+                {Math.max(
+                  0,
+                  Math.ceil(
+                    (lp.withdrawalRequestedAt + 86400000 - Date.now()) / 3600000
+                  )
+                )}
+                hr
               </p>
             </div>
           )}
@@ -492,11 +583,16 @@ export default function LpDashboardPage() {
       <div className="space-y-2 text-xs font-mono text-text-tertiary">
         <p>• 80% of deposits auto-deploy to Aave V3 for base yield</p>
         <p>• Withdrawals require 24hr delay after request</p>
-        <p>• Share tokens (UVS) are transferable — exit via secondary market instantly</p>
-        <p>• APY figures are variable — shown as rolling averages, not guaranteed</p>
+        <p>
+          • Share tokens (UVS) are transferable — exit via secondary market
+          instantly
+        </p>
+        <p>
+          • APY figures are variable — shown as rolling averages, not guaranteed
+        </p>
       </div>
     </div>
-  )
+  );
 }
 ```
 

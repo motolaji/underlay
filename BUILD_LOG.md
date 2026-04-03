@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 1 foundation and frontend IA redesign complete
+- Current phase: Round 2 core contracts scaffolded, verification pending
 - Last updated: 2026-04-03
 
 ## Completed
@@ -61,6 +61,29 @@
 - Added `cre-workflow/workflows/settlement/main.ts`
 - Added `cre-workflow/tsconfig.json`
 
+### 2026-04-03 - Stage 2 core contract implementation
+
+- Added `contracts/src/VaultManager.sol`
+- Added `contracts/src/PositionBook.sol`
+- Added `contracts/src/RiskEngine.sol`
+- Added local contract interfaces:
+  - `contracts/src/interfaces/IAaveV3Pool.sol`
+  - `contracts/src/interfaces/IAToken.sol`
+  - `contracts/src/interfaces/IVaultManager.sol`
+  - `contracts/src/interfaces/IPositionBook.sol`
+  - `contracts/src/interfaces/IWorldID.sol`
+- Added `contracts/src/libraries/ByteHasher.sol`
+- Expanded `contracts/src/libraries/VaultConfig.sol` with canonical mainnet/testnet config helpers and capacity helpers
+- Added Foundry test scaffolding and helpers:
+  - `contracts/test/helpers/MockERC20.sol`
+  - `contracts/test/helpers/MockAave.sol`
+  - `contracts/test/helpers/MockWorldID.sol`
+  - `contracts/test/helpers/Stage2Fixtures.sol`
+- Added Stage 2 test files:
+  - `contracts/test/VaultManager.t.sol`
+  - `contracts/test/PositionBook.t.sol`
+  - `contracts/test/RiskEngine.t.sol`
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -68,6 +91,7 @@
 - `app`: `npm run typecheck` - passed
 - `cre-workflow`: `npm run build` - passed
 - `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
+- `contracts`: verification still blocked because `forge` is not installed locally
 
 ## In Progress
 
@@ -77,12 +101,12 @@
 
 ### Round 2 - Core contracts
 
-1. Write `VaultManager.sol`
-2. Add ERC-4626 vault mechanics and reserve accounting
-3. Add tests for config validation and vault lifecycle
-4. Write `RiskEngine.sol`
-5. Write `PositionBook.sol`
-6. Add owner-scoped read methods for frontend receipt rendering
+1. Install Foundry locally
+2. Run `forge build`
+3. Run `forge test`
+4. Fix any compile or test issues from live validation
+5. Implement `SettlementManager.sol`
+6. Add any missing read methods uncovered by app integration
 
 ### Round 3 - Live integrations
 
@@ -108,8 +132,8 @@
 ### Foundry - BLOCKED
 
 - Issue: `forge` is not installed in the local environment
-- Impact: contract compilation, testing, and dependency installation could not be verified yet
-- Resolution path: install Foundry, then run `forge build` inside `contracts/`
+- Impact: Stage 2 contracts and Foundry tests were written, but compilation and test execution could not be verified yet
+- Resolution path: install Foundry, then run `forge build` and `forge test` inside `contracts/`
 
 ### Chainlink CRE CLI - BLOCKED
 
@@ -186,25 +210,27 @@ Base Sepolia Testnet:
 
 ### Contracts
 
-- [ ] `solidity-vault-erc4626.md`
-- [ ] `solidity-world-id.md`
-- [ ] `solidity-position-book.md`
-- [ ] `solidity-aave-v3.md`
-- [ ] `solidity-settlement.md`
+- [x] `solidity-vault-erc4626.md`
+- [x] `solidity-world-id.md`
+- [x] `solidity-position-book.md`
+- [x] `solidity-aave-v3.md`
+- [x] `solidity-settlement.md`
+- [x] `foundry-testing.md`
+- [x] `foundry-deployment.md`
 
 ### Integrations
 
-- [ ] `chainlink-cre-workflow.md`
-- [ ] `polymarket-api.md`
-- [ ] `0g-compute.md`
+- [x] `chainlink-cre-workflow.md`
+- [x] `polymarket-api.md`
+- [x] `0g-compute.md`
 - [ ] `0g-storage.md`
 - [ ] `worldid-frontend.md`
-- [ ] `ens-text-records.md`
+- [x] `ens-text-records.md`
 
 ### Frontend
 
 - [ ] `pricing-formula.md`
-- [ ] `nextjs-market-browser.md`
-- [ ] `nextjs-betslip.md`
-- [ ] `nextjs-lp-dashboard.md`
-- [ ] `nextjs-position-tracker.md`
+- [x] `nextjs-market-browser.md`
+- [x] `nextjs-betslip.md`
+- [x] `nextjs-lp-dashboard.md`
+- [x] `nextjs-position-tracker.md`
