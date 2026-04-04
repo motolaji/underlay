@@ -20,6 +20,7 @@ import {MockAavePool, MockAToken} from "./MockAave.sol";
 import {MockWorldID} from "./MockWorldID.sol";
 
 contract Stage2Fixtures is Test {
+    uint256 internal constant TEST_WITHDRAWAL_DELAY = 2 minutes;
     address internal owner = makeAddr("owner");
     address internal lp = makeAddr("lp");
     address internal bettor = makeAddr("bettor");
@@ -52,7 +53,8 @@ contract Stage2Fixtures is Test {
             IAToken(address(aUsdc)),
             cfg,
             owner,
-            true
+            true,
+            TEST_WITHDRAWAL_DELAY
         );
 
         book = new PositionBook(IERC20(address(usdc)), IVaultManager(address(vault)), cfg, 1, 10, owner);

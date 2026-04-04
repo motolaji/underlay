@@ -33,12 +33,14 @@ contract Deploy is Script {
         VaultConfig.Config memory config = _getVaultConfig();
         address creForwarder = vm.envOr("CRE_FORWARDER_ADDRESS", deployer);
         address challengeCouncil = vm.envOr("CHALLENGE_COUNCIL_ADDRESS", deployer);
+        uint256 withdrawalDelay = _getWithdrawalDelay();
 
         console2.log("Deploying Underlay contracts");
         console2.log("chainId", block.chainid);
         console2.log("deployer", deployer);
         console2.log("vault asset", chain.usdc);
         console2.log("aave enabled", chain.aaveEnabled);
+        console2.log("withdrawal delay", withdrawalDelay);
 
         vm.startBroadcast(privateKey);
 
@@ -48,7 +50,8 @@ contract Deploy is Script {
             IAToken(chain.aUsdc),
             config,
             deployer,
-            chain.aaveEnabled
+            chain.aaveEnabled,
+            withdrawalDelay
         );
 
         PositionBook positionBook = new PositionBook(
@@ -144,5 +147,13 @@ contract Deploy is Script {
         }
 
         return PositionRouter.VaultCategory.MIXED;
+    }
+
+    function _getWithdrawalDelay() internal view returns (uint256) {
+        if (block.chainid == 84532 || block.chainid == 16600) {
+            return vm.envOr("TESTNET_WITHDRAWAL_DELAY", uint256(2 minutes));
+        }
+
+        return vm.envOr("MAINNET_WITHDRAWAL_DELAY", uint256(24 hours));
     }
 }

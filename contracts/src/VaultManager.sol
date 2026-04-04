@@ -26,8 +26,8 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
     error VaultManagerRequestedSharesExceeded();
     error VaultManagerLiabilityTooHigh();
     error VaultManagerVaultNotActive();
+    error VaultManagerInvalidWithdrawalDelay();
 
-    uint256 public constant WITHDRAWAL_DELAY = 24 hours;
     uint256 private constant SHARE_PRICE_SCALE = 1e18;
 
     VaultConfig.Config public config;
@@ -35,6 +35,7 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
     IAaveV3Pool public immutable aavePool;
     IAToken public immutable aUsdc;
     bool public immutable aaveEnabled;
+    uint256 public immutable withdrawalDelay;
 
     uint256 public openLiability;
     uint256 public totalDeposited;
@@ -73,10 +74,15 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
         IAToken _aUsdc,
         VaultConfig.Config memory _config,
         address _owner,
-        bool _aaveEnabled
+        bool _aaveEnabled,
+        uint256 _withdrawalDelay
     ) ERC20("Underlay Vault Share", "UVS") ERC4626(_usdc) Ownable(_owner) {
         if (address(_usdc) == address(0) || _owner == address(0)) {
             revert ZeroAddress();
+        }
+
+        if (_withdrawalDelay == 0) {
+            revert VaultManagerInvalidWithdrawalDelay();
         }
 
         _config.validate();
@@ -90,6 +96,7 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
         aUsdc = _aUsdc;
         config = _config;
         aaveEnabled = _aaveEnabled;
+        withdrawalDelay = _withdrawalDelay;
     }
 
     function totalAssets() public view override(ERC4626, IVaultManager) returns (uint256) {
@@ -145,7 +152,7 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
         assets = shares == 0 ? 0 : previewRedeem(shares);
         unlockTimestamp = withdrawalRequestTime[account] == 0
             ? 0
-            : withdrawalRequestTime[account] + WITHDRAWAL_DELAY;
+            : withdrawalRequestTime[account] + withdrawalDelay;
     }
 
     function utilizationBps() public view returns (uint256) {
@@ -432,7 +439,7 @@ contract VaultManager is ERC4626, Ownable, ReentrancyGuard, IVaultManager {
     function _withdrawalDelayElapsed(address account) internal view returns (bool) {
         uint256 requestTime = withdrawalRequestTime[account];
 
-        return requestTime != 0 && block.timestamp >= requestTime + WITHDRAWAL_DELAY;
+        return requestTime != 0 && block.timestamp >= requestTime + withdrawalDelay;
     }
 
     function _consumeWithdrawalRequest(address owner, uint256 shares) internal {

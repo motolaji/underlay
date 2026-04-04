@@ -11,6 +11,31 @@ export const vaultManagerAbi = [
   },
   {
     type: "function",
+    stateMutability: "nonpayable",
+    name: "requestWithdrawal",
+    inputs: [{ name: "shares", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    stateMutability: "nonpayable",
+    name: "redeem",
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "receiver", type: "address" },
+      { name: "owner", type: "address" },
+    ],
+    outputs: [{ name: "assets", type: "uint256" }],
+  },
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "withdrawalDelay",
+    inputs: [],
+    outputs: [{ name: "delay", type: "uint256" }],
+  },
+  {
+    type: "function",
     stateMutability: "view",
     name: "getVaultState",
     inputs: [],
@@ -44,5 +69,19 @@ export const vaultManagerAbi = [
       { name: "shares", type: "uint256" },
       { name: "unlockTimestamp", type: "uint64" },
     ],
+  },
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "maxRedeem",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "shares", type: "uint256" }],
+  },
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "maxWithdraw",
+    inputs: [{ name: "owner", type: "address" }],
+    outputs: [{ name: "assets", type: "uint256" }],
   },
 ] as const;

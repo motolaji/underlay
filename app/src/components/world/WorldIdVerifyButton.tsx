@@ -25,8 +25,6 @@ export function WorldIdVerifyButton({
     | `app_${string}`
     | undefined;
   const action = process.env.NEXT_PUBLIC_WORLD_ACTION_ID ?? "place-position";
-  const returnTo =
-    typeof window !== "undefined" ? window.location.href : undefined;
   const [open, setOpen] = useState(false);
   const [rpContext, setRpContext] = useState<RpContext | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +68,10 @@ export function WorldIdVerifyButton({
     const response = result.responses[0] as ResponseItemV3 | undefined;
 
     if (!response || result.protocol_version !== "3.0") {
-      throw new Error("Unsupported World ID proof format.");
+      setError(
+        "This verification returned a proof format that is not yet wired to the current onchain path. Please retry in the desktop browser flow."
+      );
+      return;
     }
 
     const [proof] = decodeAbiParameters(
@@ -118,8 +119,7 @@ export function WorldIdVerifyButton({
           action={action}
           action_description="Verify identity to place a high-stake position"
           rp_context={rpContext}
-          return_to={returnTo}
-          allow_legacy_proofs
+          allow_legacy_proofs={true}
           preset={orbLegacy({ signal: walletAddress })}
           onSuccess={handleSuccess}
           onError={(errorCode) => {

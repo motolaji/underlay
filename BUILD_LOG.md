@@ -163,11 +163,11 @@
 - Deployer wallet: `0xA106f5cC202C22930c4eD75B8100Ac2c6481DC5e`
 - Latest deployment artifacts written to `contracts/broadcast/Deploy.s.sol/84532/run-latest.json`
 - Final live deployment addresses:
-  - `VaultManager`: `0x5C206d49Bb501c53ff96b3F82cF21589eECf6dfE`
-  - `PositionBook`: `0x4B8AC3cbf08B7370952A7BaFcFE3bfe90b318bfA`
-  - `RiskEngine`: `0x7d0c079d7c26E8429f2D6f97CEBCc11523D6b222`
-  - `SettlementManager`: `0x41AC1575E3F4BeD8ab6fb7B924E39F8C54BB311E`
-  - `PositionRouter`: `0x6b0835BC9A684C0728b515641d575BeC9d1d036e`
+  - `VaultManager`: `0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802`
+  - `PositionBook`: `0x10809a9ed37968FEf36bf73Ce9Aa9A96166D8dc4`
+  - `RiskEngine`: `0x163e0D8f3Ae08ad43504bE7F6e153C21f55514Ae`
+  - `SettlementManager`: `0x4A318A82eA88a1Ffba82cE342a9D8E64d48C1826`
+  - `PositionRouter`: `0xF4101C926C8Fa5Ab8275a4d6ea81c44d04876a54`
 
 ### 2026-04-03 - Faucet-friendly testnet profile
 
@@ -181,6 +181,13 @@
 - Updated contract config, frontend constants, deployment env defaults, and docs to match
 - Redeployed Base Sepolia contracts with the faucet-friendly profile
 
+### 2026-04-04 - Demo withdrawal delay profile
+
+- Replaced the hardcoded vault withdrawal delay with a deployment-configured immutable
+- Base Sepolia testnet now deploys with `TESTNET_WITHDRAWAL_DELAY=120` seconds (`2 minutes`)
+- Mainnet intent remains `24 hours` via deployment config
+- Updated the LP frontend to explain the shortened hackathon demo delay
+
 ### 2026-04-03 - Post-deployment verification
 
 - Verified contract wiring with `cast call`
@@ -188,6 +195,8 @@
 - Verified final live vault configuration:
   - `asset() = 0x036CbD53842c5426634e7929541eC2318f3dCF7e`
   - `aaveEnabled() = false`
+- Verified final demo withdrawal configuration:
+  - `withdrawalDelay() = 120`
 - Verified current vault state:
   - `active() = false`
   - `totalAssets() = 0`
@@ -209,6 +218,13 @@
 - Added wallet-scoped share balance, wallet USDC balance, allowance, pending withdrawal, and vault state reads
 - Added LP approve and deposit actions against the live Base Sepolia deployment
 - Added explicit faucet-mode testnet framing in the app workspace, LP page, and protocol page
+- Completed the LP action flow with:
+  - optimistic allowance updates after approval
+  - immediate transition from approve to deposit without page refresh
+  - withdrawal request input and transaction flow
+  - withdrawal completion flow via `redeem(...)`
+  - live `maxRedeem` / `maxWithdraw` read surfaces and pending-withdrawal status
+  - optimistic UI updates after deposit/request/redeem receipts for demo responsiveness
 
 ### 2026-04-04 - Frontend visual redesign and theme system
 
@@ -232,11 +248,14 @@
 
 ### 2026-04-04 - 0G integration finalization
 
-- Fixed `ZgFile.fromBuffer` bug — method does not exist in `@0glabs/0g-ts-sdk` v0.3.3; replaced with `new MemData(buffer)` which extends `AbstractFile` with the same `merkleTree()` / `merkleSize()` interface
-- Verified `broker.inference.listService()`, `getServiceMetadata()`, `getRequestHeaders()`, `processResponse()` all match the actual v0.7.4 API (confirmed from `lib.commonjs` source + `.d.ts` types)
-- Added `GET /api/og-status` endpoint: connects to 0G Galileo, calls `listService()`, returns available compute providers or a structured error if `OG_PRIVATE_KEY` is missing/invalid
-- Updated `.env.local` with inline instructions for funding the 0G wallet and depositing compute credits
-- 0G compute and storage are now fully wired; the only activation step remaining is setting `OG_PRIVATE_KEY` to a funded Galileo wallet
+- Fixed `ZgFile.fromBuffer` bug — method does not exist in `@0glabs/0g-ts-sdk` v0.3.3; replaced with `new MemData(buffer)`
+- Fixed double-path URL bug — `getServiceMetadata` returns `${url}/v1/proxy` as the base; corrected fetch to `${endpoint}/chat/completions` (not `/v1/chat/completions`)
+- Updated service selection to match any non-image model (Qwen available on testnet, not Llama)
+- Verified `broker.inference.listService()`, `getServiceMetadata()`, `getRequestHeaders()`, `processResponse()` all match v0.7.4 API
+- Added `GET /api/og-status` endpoint: returns live compute providers or structured error
+- Added `scripts/deposit-og-credits.mjs` for one-off ledger funding (requires 3 0G minimum)
+- Deposited compute credits — confirmed `qwen/qwen-2.5-7b-instruct` live on Galileo
+- Betslip confirmed showing `source: "0g_compute"` and `0G stored` audit receipt — fully live
 
 ### 2026-04-04 - Bettor submit and positions integration
 
@@ -272,7 +291,9 @@
 - `contracts`: post-deployment wiring verification - passed
 - `contracts`: faucet-friendly redeploy and verification - passed
 - `app`: live LP vault page integration build - passed
+- `app`: completed LP page interaction flow build - passed
 - `app`: bettor submit and positions integration build - passed
+- `contracts`: demo withdrawal-delay redeploy - passed
 
 ## In Progress
 
@@ -282,9 +303,11 @@
 
 ### Round 3 - Live integrations
 
-1. Set `WORLD_RP_SIGNING_KEY` so World ID proof requests can be generated end-to-end
-2. Test live bettor submission flow from the app into `RiskEngine.sol`
-3. Expand position detail rendering with per-leg reads and settlement state
+1. Seed the final live vault `0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802` with at least `20e6` faucet USDC
+2. Restart the app dev server so it picks up the final live contract addresses
+3. Test LP deposit and 2-minute withdrawal flow end-to-end
+4. Test live bettor submission flow from the app into `RiskEngine.sol`
+5. Expand position detail rendering with per-leg reads and settlement state
 
 ### Round 4 - Deployment
 
@@ -377,11 +400,11 @@ POLYMARKET
 
 ```text
 Base Sepolia Testnet:
-  VaultManager:              0x5C206d49Bb501c53ff96b3F82cF21589eECf6dfE
-  PositionBook:              0x4B8AC3cbf08B7370952A7BaFcFE3bfe90b318bfA
-  PositionRouter:            0x6b0835BC9A684C0728b515641d575BeC9d1d036e
-  RiskEngine:                0x7d0c079d7c26E8429f2D6f97CEBCc11523D6b222
-  SettlementManager:         0x41AC1575E3F4BeD8ab6fb7B924E39F8C54BB311E
+  VaultManager:              0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802
+  PositionBook:              0x10809a9ed37968FEf36bf73Ce9Aa9A96166D8dc4
+  PositionRouter:            0xF4101C926C8Fa5Ab8275a4d6ea81c44d04876a54
+  RiskEngine:                0x163e0D8f3Ae08ad43504bE7F6e153C21f55514Ae
+  SettlementManager:         0x4A318A82eA88a1Ffba82cE342a9D8E64d48C1826
 
 0G Chain Testnet:
   VaultManager:              [not deployed]

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { erc20Abi, formatUnits } from "viem";
 import {
   useAccount,
@@ -24,11 +30,31 @@ function liabilityColor(pct: number) {
 export default function AppLpPage() {
   const { address, isConnected } = useAccount();
   const [depositInput, setDepositInput] = useState("");
+  const [withdrawInput, setWithdrawInput] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionHash, setActionHash] = useState<`0x${string}` | undefined>();
-  const [actionLabel, setActionLabel] = useState<"approve" | "deposit" | null>(
-    null
-  );
+  const [actionLabel, setActionLabel] = useState<
+    "approve" | "deposit" | "request" | "redeem" | null
+  >(null);
+  const [optimisticAllowance, setOptimisticAllowance] = useState<bigint>(0n);
+  const [optimisticUserSharesDelta, setOptimisticUserSharesDelta] =
+    useState<bigint>(0n);
+  const [optimisticVaultAssetsDelta, setOptimisticVaultAssetsDelta] =
+    useState<bigint>(0n);
+  const [optimisticUsdcBalanceDelta, setOptimisticUsdcBalanceDelta] =
+    useState<bigint>(0n);
+  const [
+    optimisticPendingWithdrawalShares,
+    setOptimisticPendingWithdrawalShares,
+  ] = useState<bigint>(0n);
+  const [
+    optimisticPendingWithdrawalAssets,
+    setOptimisticPendingWithdrawalAssets,
+  ] = useState<bigint>(0n);
+  const [
+    optimisticPendingUnlockTimestamp,
+    setOptimisticPendingUnlockTimestamp,
+  ] = useState<bigint>(0n);
 
   const vaultAddress = contractAddresses.baseSepolia.vaultManager;
   const usdcAddress = contractAddresses.baseSepolia.usdc;
@@ -87,6 +113,38 @@ export default function AppLpPage() {
     },
   });
 
+  const maxRedeemQuery = useReadContract({
+    address: vaultAddress,
+    abi: vaultManagerAbi,
+    functionName: "maxRedeem",
+    args: address ? [address] : undefined,
+    query: {
+      enabled: Boolean(vaultAddress && address),
+      staleTime: 15_000,
+    },
+  });
+
+  const maxWithdrawQuery = useReadContract({
+    address: vaultAddress,
+    abi: vaultManagerAbi,
+    functionName: "maxWithdraw",
+    args: address ? [address] : undefined,
+    query: {
+      enabled: Boolean(vaultAddress && address),
+      staleTime: 15_000,
+    },
+  });
+
+  const withdrawalDelayQuery = useReadContract({
+    address: vaultAddress,
+    abi: vaultManagerAbi,
+    functionName: "withdrawalDelay",
+    query: {
+      enabled: Boolean(vaultAddress),
+      staleTime: 15_000,
+    },
+  });
+
   const { writeContractAsync, isPending } = useWriteContract();
   const receiptQuery = useWaitForTransactionReceipt({ hash: actionHash });
 
@@ -118,12 +176,25 @@ export default function AppLpPage() {
     }
   }, [depositInput]);
 
+  const withdrawSharesRaw = useMemo(() => {
+    try {
+      return parseUsdcInput(withdrawInput || "0");
+    } catch {
+      return 0n;
+    }
+  }, [withdrawInput]);
+
   const totalAssets = vaultState?.totalAssets ?? 0n;
   const totalSupply = vaultState?.totalSupply ?? 0n;
   const sharePriceE18 = vaultState?.sharePriceE18 ?? 1_000_000_000_000_000_000n;
-  const userShares = userSharesQuery.data ?? 0n;
-  const userUsdcBalance = userUsdcBalanceQuery.data ?? 0n;
-  const allowance = allowanceQuery.data ?? 0n;
+  const userShares = (userSharesQuery.data ?? 0n) + optimisticUserSharesDelta;
+  const userUsdcBalance =
+    (userUsdcBalanceQuery.data ?? 0n) + optimisticUsdcBalanceDelta;
+  const currentAllowance = allowanceQuery.data ?? 0n;
+  const allowance =
+    optimisticAllowance > currentAllowance
+      ? optimisticAllowance
+      : currentAllowance;
   const userValueRaw =
     (userShares * sharePriceE18) / 1_000_000_000_000_000_000n;
   const estimatedShares =
@@ -139,6 +210,35 @@ export default function AppLpPage() {
     Boolean(usdcAddress) &&
     depositRaw > 0n &&
     userUsdcBalance >= depositRaw;
+  const pendingWithdrawalAssets = pendingWithdrawal?.[0] ?? 0n;
+  const pendingWithdrawalShares = pendingWithdrawal?.[1] ?? 0n;
+  const pendingUnlockTimestamp = pendingWithdrawal?.[2] ?? 0n;
+  const displayPendingWithdrawalAssets =
+    optimisticPendingWithdrawalAssets > pendingWithdrawalAssets
+      ? optimisticPendingWithdrawalAssets
+      : pendingWithdrawalAssets;
+  const displayPendingWithdrawalShares =
+    optimisticPendingWithdrawalShares > pendingWithdrawalShares
+      ? optimisticPendingWithdrawalShares
+      : pendingWithdrawalShares;
+  const displayPendingUnlockTimestamp =
+    optimisticPendingUnlockTimestamp > pendingUnlockTimestamp
+      ? optimisticPendingUnlockTimestamp
+      : pendingUnlockTimestamp;
+  const maxRedeemShares = maxRedeemQuery.data ?? 0n;
+  const maxWithdrawAssets = maxWithdrawQuery.data ?? 0n;
+  const withdrawalDelay = withdrawalDelayQuery.data ?? 0n;
+  const canRequestWithdrawal =
+    isConnected &&
+    Boolean(vaultAddress) &&
+    withdrawSharesRaw > 0n &&
+    withdrawSharesRaw <= userShares;
+  const canRedeem =
+    isConnected &&
+    Boolean(vaultAddress) &&
+    Boolean(address) &&
+    maxRedeemShares > 0n &&
+    pendingWithdrawalShares > 0n;
 
   const utilisationPct = Number(vaultState?.utilizationBps ?? 0n) / 100;
   const reserveRatioPct =
@@ -168,7 +268,7 @@ export default function AppLpPage() {
     }
   }
 
-  async function handleDeposit() {
+  const handleDeposit = useCallback(async () => {
     if (!vaultAddress || !address || !canDeposit || needsApproval) {
       return;
     }
@@ -188,6 +288,55 @@ export default function AppLpPage() {
         error instanceof Error ? error.message : "Deposit failed."
       );
     }
+  }, [
+    address,
+    canDeposit,
+    needsApproval,
+    depositRaw,
+    vaultAddress,
+    writeContractAsync,
+  ]);
+
+  async function handleRequestWithdrawal() {
+    if (!vaultAddress || !canRequestWithdrawal) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      setActionLabel("request");
+      const hash = await writeContractAsync({
+        address: vaultAddress,
+        abi: vaultManagerAbi,
+        functionName: "requestWithdrawal",
+        args: [withdrawSharesRaw],
+      });
+      setActionHash(hash);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Withdrawal request failed."
+      );
+    }
+  }
+
+  async function handleRedeem() {
+    if (!vaultAddress || !address || !canRedeem) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      setActionLabel("redeem");
+      const hash = await writeContractAsync({
+        address: vaultAddress,
+        abi: vaultManagerAbi,
+        functionName: "redeem",
+        args: [maxRedeemShares, address, address],
+      });
+      setActionHash(hash);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Redeem failed.");
+    }
   }
 
   const pendingMessage =
@@ -195,6 +344,10 @@ export default function AppLpPage() {
       ? "Approval pending..."
       : actionLabel === "deposit"
       ? "Deposit pending..."
+      : actionLabel === "request"
+      ? "Withdrawal request pending..."
+      : actionLabel === "redeem"
+      ? "Withdrawal completion pending..."
       : null;
 
   const transactionComplete = receiptQuery.isSuccess;
@@ -204,19 +357,93 @@ export default function AppLpPage() {
       return;
     }
 
+    if (actionLabel === "approve") {
+      setOptimisticAllowance(depositRaw);
+      setActionLabel(null);
+      setActionHash(undefined);
+      void allowanceQuery.refetch();
+      return;
+    }
+
+    if (actionLabel === "deposit") {
+      setOptimisticUserSharesDelta((value) => value + estimatedShares);
+      setOptimisticVaultAssetsDelta((value) => value + depositRaw);
+      setOptimisticUsdcBalanceDelta((value) => value - depositRaw);
+      setDepositInput("");
+      setOptimisticAllowance(0n);
+    }
+
+    if (actionLabel === "request") {
+      setOptimisticPendingWithdrawalShares(withdrawSharesRaw);
+      setOptimisticPendingWithdrawalAssets(
+        (withdrawSharesRaw * sharePriceE18) / 1_000_000_000_000_000_000n
+      );
+      setOptimisticPendingUnlockTimestamp(
+        BigInt(Math.floor(Date.now() / 1000)) + withdrawalDelay
+      );
+      setWithdrawInput("");
+    }
+
+    if (actionLabel === "redeem") {
+      setOptimisticUserSharesDelta((value) => value - maxRedeemShares);
+      setOptimisticVaultAssetsDelta((value) => value - maxWithdrawAssets);
+      setOptimisticUsdcBalanceDelta((value) => value + maxWithdrawAssets);
+      setOptimisticPendingWithdrawalShares(0n);
+      setOptimisticPendingWithdrawalAssets(0n);
+      setOptimisticPendingUnlockTimestamp(0n);
+      setWithdrawInput("");
+    }
+
+    setActionLabel(null);
+    setActionHash(undefined);
     void vaultStateQuery.refetch();
     void userSharesQuery.refetch();
     void userUsdcBalanceQuery.refetch();
     void allowanceQuery.refetch();
     void pendingWithdrawalQuery.refetch();
+    void maxRedeemQuery.refetch();
+    void maxWithdrawQuery.refetch();
   }, [
+    actionLabel,
     allowanceQuery,
+    depositRaw,
+    maxRedeemQuery,
+    maxWithdrawQuery,
     pendingWithdrawalQuery,
+    estimatedShares,
+    sharePriceE18,
     transactionComplete,
     userSharesQuery,
     userUsdcBalanceQuery,
     vaultStateQuery,
+    withdrawSharesRaw,
+    maxRedeemShares,
+    maxWithdrawAssets,
+    withdrawalDelay,
   ]);
+
+  useEffect(() => {
+    if (
+      !transactionComplete ||
+      actionLabel === "approve" ||
+      actionLabel === null
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setOptimisticUserSharesDelta(0n);
+      setOptimisticVaultAssetsDelta(0n);
+      setOptimisticUsdcBalanceDelta(0n);
+      if (actionLabel === "redeem") {
+        setOptimisticPendingWithdrawalShares(0n);
+        setOptimisticPendingWithdrawalAssets(0n);
+        setOptimisticPendingUnlockTimestamp(0n);
+      }
+    }, 2500);
+
+    return () => window.clearTimeout(timeout);
+  }, [actionLabel, transactionComplete]);
 
   return (
     <div className="section-shell space-y-px py-6">
@@ -262,7 +489,7 @@ export default function AppLpPage() {
           <div className="mt-4 grid grid-cols-3 gap-4">
             <MetricBlock
               label="TVL"
-              value={formatUsdc(totalAssets)}
+              value={formatUsdc(totalAssets + optimisticVaultAssetsDelta)}
               meta="USDC"
             />
             <MetricBlock
@@ -353,7 +580,13 @@ export default function AppLpPage() {
           )}
           {transactionComplete && (
             <p className="mt-3 text-sm text-[color:var(--data-positive)]">
-              Transaction confirmed. Refreshing vault reads.
+              {actionLabel === "deposit"
+                ? "Deposit confirmed. Refreshing vault reads."
+                : actionLabel === "request"
+                ? "Withdrawal request confirmed. Refreshing vault reads."
+                : actionLabel === "redeem"
+                ? "Withdrawal completed. Refreshing vault reads."
+                : "Transaction confirmed. Refreshing vault reads."}
             </p>
           )}
           {actionError && (
@@ -368,7 +601,11 @@ export default function AppLpPage() {
               disabled={!canDeposit || !needsApproval || isPending}
               className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] transition-colors hover:border-[color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {needsApproval ? "Approve USDC" : "Approval not needed"}
+              {actionLabel === "approve"
+                ? "Approving USDC..."
+                : needsApproval
+                ? "Approve USDC"
+                : "Approval confirmed"}
             </button>
             <button
               type="button"
@@ -376,9 +613,14 @@ export default function AppLpPage() {
               disabled={!canDeposit || needsApproval || isPending}
               className="w-full bg-white py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Deposit
+              {actionLabel === "deposit" ? "Depositing..." : "Deposit"}
             </button>
           </div>
+          {!needsApproval && depositRaw > 0n && canDeposit && (
+            <p className="mt-3 text-sm text-[color:var(--data-positive)]">
+              Approval confirmed. You can deposit now without refreshing.
+            </p>
+          )}
           <p className="mt-1.5 font-mono text-[10px] text-[color:var(--text-tertiary)]">
             Min activation: {formatUsdc(TESTNET_VAULT_CONFIG.minActivationRaw)}
           </p>
@@ -389,31 +631,84 @@ export default function AppLpPage() {
           <div className="space-y-3">
             <InfoRow
               label="Pending assets"
-              value={formatUsdc((pendingWithdrawal?.[0] ?? 0n) as bigint)}
+              value={formatUsdc(displayPendingWithdrawalAssets)}
             />
             <InfoRow
               label="Pending shares"
-              value={formatUnits((pendingWithdrawal?.[1] ?? 0n) as bigint, 6)}
+              value={formatUnits(displayPendingWithdrawalShares, 6)}
             />
             <InfoRow
               label="Unlock"
               value={
-                pendingWithdrawal && Number(pendingWithdrawal[2]) > 0
+                displayPendingUnlockTimestamp > 0n
                   ? new Date(
-                      Number(pendingWithdrawal[2]) * 1000
+                      Number(displayPendingUnlockTimestamp) * 1000
                     ).toLocaleString()
                   : "No request"
               }
+            />
+            <InfoRow
+              label="Redeemable shares"
+              value={formatUnits(maxRedeemShares, 6)}
+            />
+            <InfoRow
+              label="Redeemable assets"
+              value={formatUsdc(maxWithdrawAssets)}
             />
             <InfoRow
               label="Withdrawals blocked"
               value={vaultState?.withdrawalsBlocked ? "Yes" : "No"}
             />
           </div>
+
+          <div className="mt-5 border-t border-[color:var(--border-subtle)] pt-4">
+            <label className="block">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+                Shares to withdraw
+              </span>
+              <input
+                value={withdrawInput}
+                onChange={(e) => setWithdrawInput(e.target.value)}
+                placeholder="0.00"
+                className="mt-2 w-full border border-[color:var(--border-default)] bg-[color:var(--bg-elevated)] px-3 py-3 font-mono text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)] outline-none focus:border-[color:var(--accent-blue)]"
+              />
+            </label>
+            <p className="mt-2 font-mono text-[10px] text-[color:var(--text-tertiary)]">
+              Available shares: {formatUnits(userShares, 6)}
+            </p>
+
+            <div className="mt-4 grid gap-2">
+              <button
+                type="button"
+                onClick={handleRequestWithdrawal}
+                disabled={!canRequestWithdrawal || isPending}
+                className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] transition-colors hover:border-[color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {actionLabel === "request"
+                  ? "Requesting..."
+                  : "Request withdrawal"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRedeem}
+                disabled={!canRedeem || isPending}
+                className="w-full bg-white py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {actionLabel === "redeem"
+                  ? "Completing..."
+                  : "Complete withdrawal"}
+              </button>
+            </div>
+          </div>
+
           <p className="mt-4 text-sm leading-7 text-[color:var(--text-secondary)]">
-            Request and complete withdrawal flows can be wired next. The live
-            vault now exposes the pending withdrawal read path and the 24h
-            guardrail state.
+            Withdrawals use a shortened demo delay on Base Sepolia. Request
+            first, then complete once redeemable shares become available.
+            Current demo delay:{" "}
+            {withdrawalDelay > 0n
+              ? `${Number(withdrawalDelay) / 60} minutes`
+              : "loading..."}
+            .
           </p>
         </div>
       </div>

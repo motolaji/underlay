@@ -102,6 +102,14 @@ export function CartDrawer() {
     return Number(liveState.utilizationBps) / 10_000;
   }, [vaultStateQuery.data]);
 
+  const availableLiabilityRaw = useMemo(() => {
+    const liveState = vaultStateQuery.data as
+      | { availableLiability?: bigint }
+      | undefined;
+
+    return liveState?.availableLiability ?? 0n;
+  }, [vaultStateQuery.data]);
+
   const quote = useMemo(() => {
     return calculateQuote({
       legs: selectedLegs,
@@ -110,6 +118,14 @@ export function CartDrawer() {
       riskScore: risk?.riskScore ?? 0,
     });
   }, [parsedStake, risk?.riskScore, selectedLegs, utilization]);
+
+  const quotePayoutRaw = useMemo(() => {
+    if (!quote) {
+      return 0n;
+    }
+
+    return BigInt(Math.round(quote.payout * 1_000_000));
+  }, [quote]);
 
   const allowanceQuery = useReadContract({
     address: usdcAddress,
@@ -133,6 +149,26 @@ export function CartDrawer() {
       ? optimisticAllowance
       : currentAllowance;
   const needsApproval = parsedStake > 0n && effectiveAllowance < parsedStake;
+  const requiresWorldIdStep = worldIdRequired && !worldIdVerified;
+  const liabilityBlockedReason = useMemo(() => {
+    if (!quote || parsedStake === 0n) {
+      return null;
+    }
+
+    if (availableLiabilityRaw === 0n) {
+      return "Vault temporarily full. Add LP capital or wait for settlement before placing another position.";
+    }
+
+    if (quotePayoutRaw > availableLiabilityRaw) {
+      return `This quote needs ${formatUsdc(
+        quotePayoutRaw
+      )} of liability, but only ${formatUsdc(
+        availableLiabilityRaw
+      )} is available.`;
+    }
+
+    return null;
+  }, [availableLiabilityRaw, parsedStake, quote, quotePayoutRaw]);
 
   const canRequestRisk =
     validation.canRequestRisk && selectedLegs.length > 0 && parsedStake > 0n;
@@ -144,6 +180,7 @@ export function CartDrawer() {
     Boolean(risk) &&
     Boolean(quote) &&
     !needsApproval &&
+    !liabilityBlockedReason &&
     validation.blockingReasons.length === 0 &&
     (!worldIdRequired || Boolean(worldIdProof));
 
@@ -236,7 +273,13 @@ export function CartDrawer() {
   ]);
 
   const handleSubmit = useCallback(async () => {
-    if (!riskEngineAddress || !risk || !quote || !address) {
+    if (
+      !riskEngineAddress ||
+      !risk ||
+      !quote ||
+      !address ||
+      liabilityBlockedReason
+    ) {
       return;
     }
 
@@ -288,6 +331,7 @@ export function CartDrawer() {
     selectedLegs,
     setSubmissionState,
     worldIdProof,
+    liabilityBlockedReason,
     writeContractAsync,
   ]);
 
@@ -577,14 +621,9 @@ export function CartDrawer() {
                 World ID proof captured.
               </p>
             ) : address ? (
-              <div className="mt-3">
-                <WorldIdVerifyButton
-                  walletAddress={address}
-                  onVerified={(proof) => {
-                    setWorldIdProof(proof);
-                    setWorldIdVerified(true);
-                  }}
-                />
+              <div className="mt-3 rounded-sm border border-[color:rgba(217,119,6,0.2)] bg-[color:rgba(217,119,6,0.06)] p-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+                Verify with World ID below before approving or placing a
+                position.
               </div>
             ) : (
               <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
@@ -612,6 +651,20 @@ export function CartDrawer() {
           </div>
         )}
 
+        {liabilityBlockedReason && (
+          <div className="border border-[color:rgba(220,38,38,0.2)] bg-[color:rgba(220,38,38,0.06)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--risk-high)]">
+              Vault capacity
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[color:var(--text-secondary)]">
+              {liabilityBlockedReason}
+            </p>
+            <p className="mt-2 font-mono text-[10px] text-[color:var(--text-tertiary)]">
+              Available liability: {formatUsdc(availableLiabilityRaw)}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           <div className="border border-[color:var(--border-subtle)] p-2.5">
             <p className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
@@ -626,7 +679,13 @@ export function CartDrawer() {
               Risk approval
             </p>
             <p className="mt-1 font-mono text-xs text-[color:var(--text-primary)]">
-              {needsApproval ? "Allowance needed" : "Ready"}
+              {requiresWorldIdStep
+                ? "World ID first"
+                : liabilityBlockedReason
+                ? "Vault full"
+                : needsApproval
+                ? "Allowance needed"
+                : "Ready"}
             </p>
           </div>
         </div>
@@ -662,7 +721,25 @@ export function CartDrawer() {
           </div>
         )}
 
-        {needsApproval ? (
+        {requiresWorldIdStep ? (
+          address ? (
+            <WorldIdVerifyButton
+              walletAddress={address}
+              onVerified={(proof) => {
+                setWorldIdProof(proof);
+                setWorldIdVerified(true);
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] opacity-40"
+            >
+              Connect wallet to verify
+            </button>
+          )
+        ) : needsApproval ? (
           <button
             type="button"
             onClick={handleApprove}
@@ -692,8 +769,10 @@ export function CartDrawer() {
           </button>
         )}
         <p className="mt-2 text-center font-mono text-[10px] text-[color:var(--text-tertiary)]">
-          {worldIdRequired && !worldIdVerified
-            ? "World ID verification is required for this stake."
+          {requiresWorldIdStep
+            ? "World ID verification is required before approval and submission."
+            : liabilityBlockedReason
+            ? "This vault has no remaining liability headroom for a new position."
             : autoSubmitAfterApproval
             ? "Approval confirmed. Submitting automatically..."
             : "Submissions are sent directly to the live RiskEngine on Base Sepolia."}

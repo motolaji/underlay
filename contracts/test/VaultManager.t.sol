@@ -17,12 +17,16 @@ contract VaultManagerTest is Stage2Fixtures {
         vm.prank(lp);
         vault.requestWithdrawal(shares);
 
-        vm.warp(block.timestamp + 24 hours + 1);
+        vm.warp(block.timestamp + TEST_WITHDRAWAL_DELAY + 1);
 
         vm.prank(lp);
         vault.redeem(shares, lp, lp);
 
         assertGt(usdc.balanceOf(lp), assetsBefore);
+    }
+
+    function test_withdrawalDelay_isConfiguredForDemo() public view {
+        assertEq(vault.withdrawalDelay(), TEST_WITHDRAWAL_DELAY);
     }
 
     function test_increaseLiability_respectsCap() public {
