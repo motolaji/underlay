@@ -3,12 +3,19 @@ export type VaultCategory = "mixed" | "sports" | "crypto" | "politics";
 export type SelectedLeg = {
   marketId: string;
   outcomeId: string;
+  outcomeIndex: number;
   question: string;
   outcomeLabel: string;
   category: VaultCategory | "other";
   referenceProbability: number;
   closesAt: string;
   closesAtLabel: string;
+};
+
+export type WorldIdProof = {
+  root: bigint;
+  nullifierHash: bigint;
+  proof: [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
 };
 
 export type SlipValidationState = {

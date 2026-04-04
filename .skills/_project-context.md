@@ -9,11 +9,11 @@ Underlay is a community-owned underwriting vault for multi-outcome prediction ma
 ## Final decisions
 
 - All dollar caps live in `VaultConfig.Config`
-- Max payout: mainnet `1_000e6`, testnet `100e6`
-- Max stake: mainnet `50e6`, testnet `5e6`
-- World ID gate: mainnet `20e6`, testnet `2e6`
-- Pool max TVL: mainnet `100_000e6`, testnet `10_000e6`
-- Min activation: mainnet `20_000e6`, testnet `2_000e6`
+- Max payout: mainnet `1_000e6`, testnet `8e6`
+- Max stake: mainnet `50e6`, testnet `2e6`
+- World ID gate: mainnet `20e6`, testnet `1e6`
+- Pool max TVL: mainnet `100_000e6`, testnet `200e6`
+- Min activation: mainnet `20_000e6`, testnet `20e6`
 - Max open liability: `40%` of TVL
 - Reserve split: `20%`
 - Aave split: `80%`

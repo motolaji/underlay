@@ -7,15 +7,15 @@ type StatusBadgeProps = {
 
 const toneClassNames: Record<NonNullable<StatusBadgeProps["tone"]>, string> = {
   default:
-    "border-[color:var(--border-default)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)]",
+    "border-[color:var(--badge-default-border)] bg-[color:var(--badge-default-bg)] text-[color:var(--badge-default-text)]",
   accent:
-    "border-[color:rgba(37,99,235,0.3)] bg-[color:rgba(37,99,235,0.08)] text-[color:#60a5fa]",
+    "border-[color:var(--badge-accent-border)] bg-[color:var(--badge-accent-bg)] text-[color:var(--badge-accent-text)]",
   warning:
-    "border-[color:rgba(217,119,6,0.35)] bg-[color:rgba(217,119,6,0.08)] text-[color:#fbbf24]",
+    "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] text-[color:var(--badge-warning-text)]",
   danger:
-    "border-[color:rgba(220,38,38,0.35)] bg-[color:rgba(220,38,38,0.08)] text-[color:#f87171]",
+    "border-[color:var(--badge-danger-border)] bg-[color:var(--badge-danger-bg)] text-[color:var(--badge-danger-text)]",
   success:
-    "border-[color:rgba(22,163,74,0.35)] bg-[color:rgba(22,163,74,0.08)] text-[color:#4ade80]",
+    "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)] text-[color:var(--badge-success-text)]",
 };
 
 export function StatusBadge({ label, tone = "default" }: StatusBadgeProps) {

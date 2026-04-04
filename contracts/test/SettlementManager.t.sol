@@ -7,7 +7,7 @@ import {PositionBook} from "../src/PositionBook.sol";
 
 contract SettlementManagerTest is Stage2Fixtures {
     function test_resolveLegs_winInitiatesDelay() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
 
         vm.startPrank(settlementOperator);
         settlement.resolveLeg(positionId, 0, true);
@@ -30,7 +30,7 @@ contract SettlementManagerTest is Stage2Fixtures {
     }
 
     function test_executeSettlement_afterDelayPaysOut() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
         uint256 balanceBefore = usdc.balanceOf(bettor);
 
         vm.startPrank(settlementOperator);
@@ -50,7 +50,7 @@ contract SettlementManagerTest is Stage2Fixtures {
     }
 
     function test_challengeSettlement_blocksExecutionUntilResolved() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
 
         vm.startPrank(settlementOperator);
         settlement.resolveLeg(positionId, 0, true);
@@ -72,7 +72,7 @@ contract SettlementManagerTest is Stage2Fixtures {
     }
 
     function test_resolveChallenge_falseVoidsPosition() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
         uint256 balanceBefore = usdc.balanceOf(bettor);
 
         vm.startPrank(settlementOperator);
@@ -97,6 +97,6 @@ contract SettlementManagerTest is Stage2Fixtures {
         assertEq(uint8(phase), uint8(SettlementManager.SettlementPhase.EXECUTED));
         assertTrue(challenged);
         assertGt(settledAt, 0);
-        assertEq(usdc.balanceOf(bettor), balanceBefore + 5e6);
+        assertEq(usdc.balanceOf(bettor), balanceBefore + 2e6);
     }
 }

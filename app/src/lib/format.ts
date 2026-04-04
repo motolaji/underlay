@@ -37,3 +37,11 @@ export function parseUsdcInput(value: string) {
 
   return BigInt(whole) * 1_000_000n + BigInt(paddedFraction);
 }
+
+export function shortenHash(value: string, start = 6, end = 4) {
+  if (value.length <= start + end) {
+    return value;
+  }
+
+  return `${value.slice(0, start)}...${value.slice(-end)}`;
+}

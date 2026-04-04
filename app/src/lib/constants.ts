@@ -1,11 +1,11 @@
 export const TESTNET_VAULT_CONFIG = {
-  maxTVLRaw: 10_000_000_000n,
-  minActivationRaw: 2_000_000_000n,
+  maxTVLRaw: 200_000_000n,
+  minActivationRaw: 20_000_000n,
   maxLiabilityBps: 4_000,
   reserveBps: 2_000,
-  maxPayoutRaw: 100_000_000n,
-  maxStakeRaw: 5_000_000n,
-  worldIdGateRaw: 2_000_000n,
+  maxPayoutRaw: 8_000_000n,
+  maxStakeRaw: 2_000_000n,
+  worldIdGateRaw: 1_000_000n,
 } as const;
 
 export const POSITION_RULES = {

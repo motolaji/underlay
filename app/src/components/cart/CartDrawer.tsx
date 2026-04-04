@@ -1,11 +1,28 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { erc20Abi } from "viem";
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 
+import { WorldIdVerifyButton } from "@/components/world/WorldIdVerifyButton";
 import { POSITION_RULES, TESTNET_VAULT_CONFIG } from "@/lib/constants";
-import { formatUsdc, parseUsdcInput } from "@/lib/format";
+import { buildRiskEngineSubmission } from "@/lib/contracts/adapters/riskEngine";
+import { riskEngineAbi } from "@/lib/contracts/abi/riskEngine";
+import { contractAddresses } from "@/lib/contracts/addresses";
+import {
+  formatCountLabel,
+  formatUsdc,
+  parseUsdcInput,
+  shortenHash,
+} from "@/lib/format";
 import { calculateQuote } from "@/lib/pricing";
+import { reownConfigured } from "@/lib/wagmi";
 import { useSlipValidation } from "@/hooks/useSlipValidation";
 import { useVaultStateQuery } from "@/hooks/queries/useVaultStateQuery";
 import { useSlipStore } from "@/stores/slipStore";
@@ -15,24 +32,38 @@ import type {
 } from "@/types/dto";
 import type { VaultCategory } from "@/types/domain";
 
-const stakePresets = ["1", "2", "5"];
+const stakePresets = ["1", "2"];
 
 export function CartDrawer() {
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const {
     selectedLegs,
     stakeInput,
     risk,
+    worldIdProof,
+    worldIdVerified,
+    submissionStatus,
+    submissionError,
+    lastSubmissionHash,
     setStakeInput,
     removeLeg,
     clearLegs,
     setValidation,
     setRisk,
+    setWorldIdProof,
+    setWorldIdVerified,
+    setSubmissionState,
   } = useSlipStore();
+
   const validation = useSlipValidation(selectedLegs, stakeInput);
   const vaultStateQuery = useVaultStateQuery();
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [txMode, setTxMode] = useState<"approve" | "submit" | null>(null);
+
+  const usdcAddress = contractAddresses.baseSepolia.usdc;
+  const riskEngineAddress = contractAddresses.baseSepolia.riskEngine;
 
   const parsedStake = useMemo(() => {
     try {
@@ -59,9 +90,7 @@ export function CartDrawer() {
 
   const utilization = useMemo(() => {
     const liveState = vaultStateQuery.data as
-      | {
-          utilizationBps?: bigint;
-        }
+      | { utilizationBps?: bigint }
       | undefined;
 
     if (!liveState?.utilizationBps) {
@@ -80,16 +109,51 @@ export function CartDrawer() {
     });
   }, [parsedStake, risk?.riskScore, selectedLegs, utilization]);
 
+  const allowanceQuery = useReadContract({
+    address: usdcAddress,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args:
+      address && riskEngineAddress ? [address, riskEngineAddress] : undefined,
+    query: {
+      enabled: Boolean(usdcAddress && address && riskEngineAddress),
+      staleTime: 10_000,
+    },
+  });
+
+  const { writeContractAsync, isPending } = useWriteContract();
+  const receiptQuery = useWaitForTransactionReceipt({ hash: txHash });
+
+  const worldIdRequired = parsedStake > TESTNET_VAULT_CONFIG.worldIdGateRaw;
+  const currentAllowance = allowanceQuery.data ?? 0n;
+  const needsApproval = parsedStake > 0n && currentAllowance < parsedStake;
+
+  const canRequestRisk =
+    validation.canRequestRisk && selectedLegs.length > 0 && parsedStake > 0n;
+  const canSubmit =
+    isConnected &&
+    Boolean(address) &&
+    Boolean(riskEngineAddress) &&
+    Boolean(usdcAddress) &&
+    Boolean(risk) &&
+    Boolean(quote) &&
+    !needsApproval &&
+    validation.blockingReasons.length === 0 &&
+    (!worldIdRequired || Boolean(worldIdProof));
+
   useEffect(() => {
     setValidation(validation);
   }, [setValidation, validation]);
 
   useEffect(() => {
-    if (
-      !validation.canRequestRisk ||
-      parsedStake === 0n ||
-      selectedLegs.length === 0
-    ) {
+    if (!worldIdRequired) {
+      setWorldIdProof(null);
+      setWorldIdVerified(false);
+    }
+  }, [setWorldIdProof, setWorldIdVerified, worldIdRequired]);
+
+  useEffect(() => {
+    if (!canRequestRisk) {
       setRisk(null);
       setRiskError(null);
       return;
@@ -111,9 +175,7 @@ export function CartDrawer() {
 
         const response = await fetch("/api/risk", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
           signal: controller.signal,
         });
@@ -155,11 +217,34 @@ export function CartDrawer() {
     };
   }, [
     address,
+    canRequestRisk,
     parsedStake,
     routeCategory,
     selectedLegs,
     setRisk,
-    validation.canRequestRisk,
+  ]);
+
+  useEffect(() => {
+    if (!receiptQuery.isSuccess || !txMode) {
+      return;
+    }
+
+    if (txMode === "approve") {
+      void allowanceQuery.refetch();
+      setSubmissionState("idle");
+      setTxHash(undefined);
+      setTxMode(null);
+      return;
+    }
+
+    setSubmissionState("success", txHash);
+    setTxMode(null);
+  }, [
+    allowanceQuery,
+    receiptQuery.isSuccess,
+    setSubmissionState,
+    txHash,
+    txMode,
   ]);
 
   const maxAllowedStakeRaw = useMemo(() => {
@@ -170,6 +255,77 @@ export function CartDrawer() {
     return BigInt(risk.maxAllowedStakeRaw);
   }, [risk]);
 
+  async function handleApprove() {
+    if (!usdcAddress || !riskEngineAddress || parsedStake === 0n) {
+      return;
+    }
+
+    try {
+      setSubmissionState("approving", undefined, null);
+      setTxMode("approve");
+      const hash = await writeContractAsync({
+        address: usdcAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [riskEngineAddress, parsedStake],
+      });
+      setTxHash(hash);
+    } catch (error) {
+      setSubmissionState(
+        "error",
+        undefined,
+        error instanceof Error ? error.message : "Approval failed."
+      );
+      setTxMode(null);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!riskEngineAddress || !risk || !quote || !canSubmit) {
+      return;
+    }
+
+    try {
+      setSubmissionState("submitting", undefined, null);
+      const payload = buildRiskEngineSubmission({
+        selectedLegs,
+        stakeRaw: parsedStake,
+        quote,
+        risk,
+        worldIdProof,
+      });
+
+      setTxMode("submit");
+      const hash = await writeContractAsync({
+        address: riskEngineAddress,
+        abi: riskEngineAbi,
+        functionName: "submitPosition",
+        args: [
+          payload.marketIds,
+          payload.outcomes,
+          payload.lockedOdds,
+          payload.resolutionTimes,
+          payload.stake,
+          payload.combinedOdds,
+          payload.riskTier,
+          payload.riskAuditHash,
+          payload.aiStakeLimit,
+          payload.root,
+          payload.nullifierHash,
+          payload.proof,
+        ],
+      });
+      setTxHash(hash);
+    } catch (error) {
+      setSubmissionState(
+        "error",
+        undefined,
+        error instanceof Error ? error.message : "Position submission failed."
+      );
+      setTxMode(null);
+    }
+  }
+
   return (
     <aside className="flex h-full flex-col border-l border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)]">
       <div className="border-b border-[color:var(--border-subtle)] px-4 py-4">
@@ -179,7 +335,10 @@ export function CartDrawer() {
             <p className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold text-[color:var(--text-primary)]">
               {selectedLegs.length === 0
                 ? "Add outcomes"
-                : `${selectedLegs.length} / ${POSITION_RULES.maxLegsPerPosition} legs`}
+                : formatCountLabel(
+                    selectedLegs.length,
+                    POSITION_RULES.maxLegsPerPosition
+                  )}
             </p>
           </div>
           {selectedLegs.length > 0 && (
@@ -357,21 +516,6 @@ export function CartDrawer() {
               <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
                 {risk.explanation.headline}
               </p>
-              {risk.explanation.factors.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {risk.explanation.factors.map((factor) => (
-                    <li
-                      key={factor.label}
-                      className="text-xs leading-5 text-[color:var(--text-secondary)]"
-                    >
-                      <span className="font-medium text-[color:var(--text-primary)]">
-                        {factor.label}:
-                      </span>{" "}
-                      {factor.value}
-                    </li>
-                  ))}
-                </ul>
-              )}
             </>
           )}
 
@@ -382,9 +526,40 @@ export function CartDrawer() {
           )}
         </div>
 
-        {validation && validation.blockingReasons.length > 0 && (
-          <div className="border border-[color:rgba(217,119,6,0.25)] bg-[color:rgba(217,119,6,0.05)] p-3">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:#fbbf24]">
+        {worldIdRequired && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+              World ID
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[color:var(--text-secondary)]">
+              Stakes above {formatUsdc(TESTNET_VAULT_CONFIG.worldIdGateRaw)}{" "}
+              require World ID proof.
+            </p>
+            {worldIdVerified ? (
+              <p className="mt-3 text-sm text-[color:var(--data-positive)]">
+                World ID proof captured.
+              </p>
+            ) : address ? (
+              <div className="mt-3">
+                <WorldIdVerifyButton
+                  walletAddress={address}
+                  onVerified={(proof) => {
+                    setWorldIdProof(proof);
+                    setWorldIdVerified(true);
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
+                Connect a wallet to verify.
+              </p>
+            )}
+          </div>
+        )}
+
+        {validation.blockingReasons.length > 0 && (
+          <div className="border border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--badge-warning-text)]">
               Check
             </p>
             <ul className="mt-2 space-y-1.5">
@@ -411,26 +586,78 @@ export function CartDrawer() {
           </div>
           <div className="border border-[color:var(--border-subtle)] p-2.5">
             <p className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
-              Vault utilisation
+              Risk approval
             </p>
             <p className="mt-1 font-mono text-xs text-[color:var(--text-primary)]">
-              {(utilization * 100).toFixed(1)}%
+              {needsApproval ? "Allowance needed" : "Ready"}
             </p>
           </div>
         </div>
       </div>
 
       <div className="border-t border-[color:var(--border-subtle)] px-4 py-4">
-        <button
-          type="button"
-          disabled={!risk || !quote || validation.blockingReasons.length > 0}
-          className="w-full bg-white py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Place Position
-        </button>
+        {!reownConfigured ? (
+          <p className="mb-3 text-sm text-[color:var(--text-secondary)]">
+            Wallet connect requires `NEXT_PUBLIC_REOWN_PROJECT_ID`.
+          </p>
+        ) : null}
+
+        {submissionError && (
+          <p className="mb-3 text-sm text-[color:var(--risk-high)]">
+            {submissionError}
+          </p>
+        )}
+
+        {lastSubmissionHash && submissionStatus === "success" && (
+          <div className="mb-3 border border-[color:rgba(22,163,74,0.2)] bg-[color:rgba(22,163,74,0.06)] p-3">
+            <p className="text-sm text-[color:var(--text-primary)]">
+              Position submitted successfully.
+            </p>
+            <p className="mt-1 font-mono text-[10px] text-[color:var(--text-secondary)]">
+              Tx {shortenHash(lastSubmissionHash)}
+            </p>
+            <Link
+              href="/app/positions"
+              className="mt-2 inline-block text-sm text-[color:var(--accent-blue)]"
+            >
+              Open positions ledger
+            </Link>
+          </div>
+        )}
+
+        {needsApproval ? (
+          <button
+            type="button"
+            onClick={handleApprove}
+            disabled={
+              !isConnected ||
+              !reownConfigured ||
+              !riskEngineAddress ||
+              isPending ||
+              parsedStake === 0n
+            }
+            className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] transition-colors hover:border-[color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submissionStatus === "approving"
+              ? "Approving USDC..."
+              : "Approve USDC"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || !reownConfigured || isPending}
+            className="w-full bg-white py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submissionStatus === "submitting"
+              ? "Submitting position..."
+              : "Place Position"}
+          </button>
+        )}
         <p className="mt-2 text-center font-mono text-[10px] text-[color:var(--text-tertiary)]">
-          Contract write flow lands after address wiring and World ID frontend
-          integration.
+          {worldIdRequired && !worldIdVerified
+            ? "World ID verification is required for this stake."
+            : "Submissions are sent directly to the live RiskEngine on Base Sepolia."}
         </p>
       </div>
     </aside>

@@ -21,7 +21,7 @@ export function MarketWorkspace() {
         {slipVisible && (
           <div
             className="hidden w-[360px] shrink-0 animate-slide-in-right lg:block"
-            style={{ position: "sticky", top: "88px", maxHeight: "calc(100vh - 104px)", overflow: "hidden" }}
+            style={{ position: "sticky", top: "88px", height: "calc(100vh - 104px)" }}
           >
             <CartDrawer />
           </div>

@@ -1,6 +1,16 @@
 export const vaultManagerAbi = [
   {
     type: "function",
+    stateMutability: "nonpayable",
+    name: "deposit",
+    inputs: [
+      { name: "assets", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
+    outputs: [{ name: "shares", type: "uint256" }],
+  },
+  {
+    type: "function",
     stateMutability: "view",
     name: "getVaultState",
     inputs: [],
@@ -22,6 +32,17 @@ export const vaultManagerAbi = [
           { name: "aaveEnabled", type: "bool" },
         ],
       },
+    ],
+  },
+  {
+    type: "function",
+    stateMutability: "view",
+    name: "getPendingWithdrawal",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [
+      { name: "assets", type: "uint256" },
+      { name: "shares", type: "uint256" },
+      { name: "unlockTimestamp", type: "uint64" },
     ],
   },
 ] as const;

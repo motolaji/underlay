@@ -5,11 +5,11 @@ library VaultConfig {
     uint256 internal constant MAX_BPS = 10_000;
     uint256 internal constant FIXED_MAX_LIABILITY_BPS = 4_000;
     uint256 internal constant FIXED_RESERVE_BPS = 2_000;
-    uint256 internal constant TESTNET_MAX_TVL = 10_000e6;
-    uint256 internal constant TESTNET_MIN_ACTIVATION = 2_000e6;
-    uint256 internal constant TESTNET_MAX_PAYOUT = 100e6;
-    uint256 internal constant TESTNET_MAX_STAKE = 5e6;
-    uint256 internal constant TESTNET_WORLD_ID_GATE = 2e6;
+    uint256 internal constant TESTNET_MAX_TVL = 200e6;
+    uint256 internal constant TESTNET_MIN_ACTIVATION = 20e6;
+    uint256 internal constant TESTNET_MAX_PAYOUT = 8e6;
+    uint256 internal constant TESTNET_MAX_STAKE = 2e6;
+    uint256 internal constant TESTNET_WORLD_ID_GATE = 1e6;
     uint256 internal constant MAINNET_MAX_TVL = 100_000e6;
     uint256 internal constant MAINNET_MIN_ACTIVATION = 20_000e6;
     uint256 internal constant MAINNET_MAX_PAYOUT = 1_000e6;

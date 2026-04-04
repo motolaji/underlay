@@ -10,6 +10,10 @@ function normalizeAddress(value?: string): Address | undefined {
 
 export const contractAddresses = {
   baseSepolia: {
+    usdc: normalizeAddress(
+      process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS ??
+        "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    ),
     vaultManager: normalizeAddress(
       process.env.NEXT_PUBLIC_VAULT_MANAGER_ADDRESS
     ),

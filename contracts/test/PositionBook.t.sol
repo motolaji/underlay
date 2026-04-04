@@ -6,7 +6,7 @@ import {PositionBook} from "../src/PositionBook.sol";
 
 contract PositionBookTest is Stage2Fixtures {
     function test_placePosition_tracksOwnerAndOpenPosition() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
         PositionBook.Position memory position = book.getPosition(positionId);
 
         assertEq(position.bettor, bettor);
@@ -15,7 +15,7 @@ contract PositionBookTest is Stage2Fixtures {
     }
 
     function test_resolveLeg_lossSweepsStakeToVault() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
         uint256 assetsBefore = vault.totalAssets();
 
         vm.startPrank(settlementOperator);
@@ -29,7 +29,7 @@ contract PositionBookTest is Stage2Fixtures {
     }
 
     function test_executePayout_onWinPaysBettor() public {
-        bytes32 positionId = _submitPosition(5e6, 5e6);
+        bytes32 positionId = _submitPosition(2e6, 2e6);
         uint256 balanceBefore = usdc.balanceOf(bettor);
 
         vm.startPrank(settlementOperator);

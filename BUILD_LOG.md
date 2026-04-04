@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 3 live app integrations in progress
+- Current phase: Round 3 live app integrations with faucet-friendly testnet deployment active
 - Last updated: 2026-04-03
 
 ## Completed
@@ -133,6 +133,100 @@
 - Expanded mixed/macro mappings for weather, shipping, culture, and geopolitics-style markets
 - Reduced uncategorized live markets in the current top market slice to zero
 
+### 2026-04-03 - Deployment readiness scaffolding
+
+- Added `contracts/script/Deploy.s.sol` for Base Sepolia / 0G deployment and wiring
+- Added `contracts/script/SeedVault.s.sol` for post-deployment activation seeding
+- Added `contracts/.env.example` with deployment env requirements
+- Verified deployment scripts compile under Foundry
+
+### 2026-04-03 - Base Sepolia deployment dry-run
+
+- Validated `contracts/.env` for Base Sepolia dry-run requirements
+- Ran `forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC --private-key $PRIVATE_KEY -vvvv`
+- Dry-run completed successfully with all contracts deploying and wiring in simulation
+- Simulated deployment addresses:
+  - `VaultManager`: `0x30f7DBCb7Aa533501a8c9dE7827a388083FedbcD`
+  - `PositionBook`: `0xba578F4c579718f618A87d401129D55019937A65`
+  - `RiskEngine`: `0xf60C93238CA2440dA2CD09E94913ECff9c6ce480`
+  - `SettlementManager`: `0x177d0c616828A707b2d60ff8f4f525ac7e8ac859`
+  - `PositionRouter`: `0xE12D24d98B4d4187b70BC690444F8F80170fbc8D`
+- Estimated required ETH for deployment on Base Sepolia: `0.000113716152`
+
+### 2026-04-03 - Base Sepolia deployment broadcast
+
+- Successfully broadcast `forge script script/Deploy.s.sol --rpc-url $BASE_SEPOLIA_RPC --private-key $PRIVATE_KEY --broadcast -vvvv`
+- Earlier Base Sepolia broadcasts were superseded during testnet profile corrections
+- Current Base Sepolia deployment uses faucet USDC and has Aave disabled:
+  - `BASE_USDC_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+  - `BASE_AAVE_ENABLED=false`
+- Deployer wallet: `0xA106f5cC202C22930c4eD75B8100Ac2c6481DC5e`
+- Latest deployment artifacts written to `contracts/broadcast/Deploy.s.sol/84532/run-latest.json`
+- Final live deployment addresses:
+  - `VaultManager`: `0x5C206d49Bb501c53ff96b3F82cF21589eECf6dfE`
+  - `PositionBook`: `0x4B8AC3cbf08B7370952A7BaFcFE3bfe90b318bfA`
+  - `RiskEngine`: `0x7d0c079d7c26E8429f2D6f97CEBCc11523D6b222`
+  - `SettlementManager`: `0x41AC1575E3F4BeD8ab6fb7B924E39F8C54BB311E`
+  - `PositionRouter`: `0x6b0835BC9A684C0728b515641d575BeC9d1d036e`
+
+### 2026-04-03 - Faucet-friendly testnet profile
+
+- Updated the testnet config to match faucet-sized liquidity flows
+- New testnet values:
+  - `maxTVL = 200e6`
+  - `minActivation = 20e6`
+  - `maxPayout = 8e6`
+  - `maxStake = 2e6`
+  - `worldIdGate = 1e6`
+- Updated contract config, frontend constants, deployment env defaults, and docs to match
+- Redeployed Base Sepolia contracts with the faucet-friendly profile
+
+### 2026-04-03 - Post-deployment verification
+
+- Verified contract wiring with `cast call`
+- Verified the faucet-USDC vault no longer reverts on `totalAssets()`
+- Verified final live vault configuration:
+  - `asset() = 0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+  - `aaveEnabled() = false`
+- Verified current vault state:
+  - `active() = false`
+  - `totalAssets() = 0`
+- Updated `app/.env.local` with the current deployed Base Sepolia addresses
+- Deployment is live, but the vault is not activated yet because no LP deposit has been made
+
+### 2026-04-03 - Faucet vault activation
+
+- LP wallet approved faucet USDC to the final live vault
+- LP wallet deposited `20e6` (`20 USDC`) into `VaultManager`
+- Verified live vault activation on Base Sepolia:
+  - `active() = true`
+  - `totalAssets() = 20000000`
+- The faucet-friendly testnet vault is now active and able to accept positions
+
+### 2026-04-03 - Live LP frontend integration
+
+- Replaced the LP dashboard demo metrics with live onchain reads from `VaultManager`
+- Added wallet-scoped share balance, wallet USDC balance, allowance, pending withdrawal, and vault state reads
+- Added LP approve and deposit actions against the live Base Sepolia deployment
+- Added explicit faucet-mode testnet framing in the app workspace, LP page, and protocol page
+
+### 2026-04-04 - Bettor submit and positions integration
+
+- Added live bettor submission scaffolding to the cart using the deployed `RiskEngine`
+- Added:
+  - `app/src/lib/contracts/abi/riskEngine.ts`
+  - `app/src/lib/contracts/abi/positionBook.ts`
+  - `app/src/lib/contracts/adapters/riskEngine.ts`
+  - `app/src/components/world/WorldIdVerifyButton.tsx`
+  - `app/src/app/api/world-id/context/route.ts`
+- The cart now supports:
+  - risk-engine USDC approval
+  - direct `RiskEngine.submitPosition(...)` transaction submission
+  - World ID proof capture path for stakes above the gate
+  - transaction success state and positions-link handoff
+- The positions page now reads wallet-scoped live position data from the deployed `PositionBook`
+- Added app env scaffolding for World ID request context (`NEXT_PUBLIC_WORLD_APP_ID`, `NEXT_PUBLIC_WORLD_ACTION_ID`, `RP_ID`, `WORLD_RP_SIGNING_KEY`)
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -143,6 +237,14 @@
 - `contracts`: `forge build` - passed
 - `contracts`: `forge test -vv` - passed (17 tests)
 - `app`: live market/risk integration build verified
+- `contracts`: deployment scripts compile under `forge build`
+- `contracts`: `forge test -q` - passed after deployment scaffolding
+- `contracts`: Base Sepolia dry-run deployment - passed
+- `contracts`: Base Sepolia broadcast deployment - passed
+- `contracts`: post-deployment wiring verification - passed
+- `contracts`: faucet-friendly redeploy and verification - passed
+- `app`: live LP vault page integration build - passed
+- `app`: bettor submit and positions integration build - passed
 
 ## In Progress
 
@@ -152,11 +254,19 @@
 
 ### Round 3 - Live integrations
 
-1. Wire deployed contract addresses into `app/.env.local`
-2. Connect the app workspace to live onchain reads end-to-end
-3. Implement World ID frontend verification flow
-4. Add 0G audit receipt fetching route/UI
-5. Implement CRE settlement workflow logic
+1. Restart the app dev server so it picks up the final live contract addresses
+2. Set `WORLD_RP_SIGNING_KEY` so World ID proof requests can be generated end-to-end
+3. Add 0G audit receipt fetching route/UI
+4. Test live bettor submission flow from the app into `RiskEngine.sol`
+5. Expand position detail rendering with per-leg reads and settlement state
+
+### Round 4 - Deployment
+
+1. Seed the deployed vault to cross `minActivation`
+2. Record deployed addresses in `app/.env.local`
+3. Verify wiring onchain with `cast call`
+4. Test the deployed protocol end-to-end with small amounts
+5. Implement World ID frontend verification and contract write flow
 
 ## Decisions Locked During Foundation
 
@@ -168,6 +278,9 @@
 - Sponsor presentation: plain-text capability labels, not logo walls
 - Position leg limits should be global config, planned default `1-10`
 - Visual system: off-white base, modern fonts, lower radius, contemporary product UI
+- Testnet profile: faucet-friendly config with `20 USDC` activation
+- Base Sepolia demo token: faucet USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+- Base Sepolia demo yield path: Aave disabled on faucet-sized deployment
 
 ## Blockers
 
@@ -189,6 +302,12 @@
 - Impact: `/api/risk` compiles and attempts real 0G compute/storage, but falls back to rule-based scoring and local audit hashes when 0G config is absent or unavailable
 - Resolution path: add the 0G env vars in `app/.env.local` and re-test the route in a configured environment
 
+### World ID request signing - PARTIAL
+
+- Issue: `WORLD_RP_SIGNING_KEY` is not configured in `app/.env.local`
+- Impact: the World ID button renders, but `/api/world-id/context` cannot generate RP-signed proof requests until the signing key is supplied
+- Resolution path: add `WORLD_RP_SIGNING_KEY` for the configured `RP_ID`, then verify a >`1 USDC` position flow end-to-end
+
 ### Network metadata - BLOCKED
 
 - Issue: 0G chain metadata, RPC URLs, and deployed contract addresses are still unknown
@@ -199,9 +318,9 @@
 
 ```text
 WORLD ID
-  App ID:                    [pending]
+  App ID:                    configured locally
   Action ID:                 place-position
-  Router (Base):             [pending]
+  Router (Base):             0x42FF98C4E85212a5D31358ACbFe76a621b50fC02
 
 CHAINLINK
   CRE Workflow ID:           [pending]
@@ -214,8 +333,9 @@ CHAINLINK
   Storage endpoint:          [pending]
 
 AAVE V3
-  Pool address (Base):       [pending]
-  USDC aToken (Base):        [pending]
+  Pool address (Base):       0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27
+  USDC aToken (Base):        0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC
+  Testnet mode:              disabled on faucet-sized Base Sepolia deployment
 
 REOWN
   Project ID:                [pending]
@@ -228,11 +348,11 @@ POLYMARKET
 
 ```text
 Base Sepolia Testnet:
-  VaultManager:              [not deployed]
-  PositionBook:              [not deployed]
-  PositionRouter:            [not deployed]
-  RiskEngine:                [not deployed]
-  SettlementManager:         [not deployed]
+  VaultManager:              0x5C206d49Bb501c53ff96b3F82cF21589eECf6dfE
+  PositionBook:              0x4B8AC3cbf08B7370952A7BaFcFE3bfe90b318bfA
+  PositionRouter:            0x6b0835BC9A684C0728b515641d575BeC9d1d036e
+  RiskEngine:                0x7d0c079d7c26E8429f2D6f97CEBCc11523D6b222
+  SettlementManager:         0x41AC1575E3F4BeD8ab6fb7B924E39F8C54BB311E
 
 0G Chain Testnet:
   VaultManager:              [not deployed]

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { cookieToInitialState, type Config, WagmiProvider } from "wagmi";
 import { initializeAppKit, wagmiConfig } from "@/lib/wagmi";
+import { ThemeApplicator } from "@/components/shell/ThemeApplicator";
 
 initializeAppKit();
 
@@ -29,7 +30,10 @@ export function AppProviders({ children, cookies }: AppProvidersProps) {
 
   return (
     <WagmiProvider config={wagmiConfig as Config} initialState={initialState}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeApplicator />
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }

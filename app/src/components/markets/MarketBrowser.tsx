@@ -63,24 +63,24 @@ export function MarketBrowser() {
             className={cn(
               "flex items-center gap-1.5 rounded-sm border px-2 py-1",
               marketsQuery.data?.source === "live"
-                ? "border-[color:rgba(22,163,74,0.3)] bg-[color:rgba(22,163,74,0.08)]"
-                : "border-[color:rgba(217,119,6,0.3)] bg-[color:rgba(217,119,6,0.08)]"
+                ? "border-[color:var(--badge-success-border)] bg-[color:var(--badge-success-bg)]"
+                : "border-[color:var(--badge-warning-border)] bg-[color:var(--badge-warning-bg)]"
             )}
           >
             <span
               className={cn(
                 "h-1.5 w-1.5 rounded-full",
                 marketsQuery.data?.source === "live"
-                  ? "bg-[color:#4ade80]"
-                  : "bg-[color:#fbbf24]"
+                  ? "text-[color:var(--badge-success-text)] bg-current"
+                  : "text-[color:var(--badge-warning-text)] bg-current"
               )}
             />
             <span
               className={cn(
                 "font-mono text-[10px] uppercase tracking-wider",
                 marketsQuery.data?.source === "live"
-                  ? "text-[color:#4ade80]"
-                  : "text-[color:#fbbf24]"
+                  ? "text-[color:var(--badge-success-text)]"
+                  : "text-[color:var(--badge-warning-text)]"
               )}
             >
               {marketsQuery.data?.source === "live"
@@ -167,10 +167,10 @@ export function MarketBrowser() {
                       className={cn(
                         "rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider",
                         market.riskBand === "High"
-                          ? "border-[color:rgba(220,38,38,0.3)] text-[color:#f87171]"
+                          ? "border-[color:var(--badge-danger-border)] text-[color:var(--badge-danger-text)]"
                           : market.riskBand === "Medium"
-                          ? "border-[color:rgba(217,119,6,0.3)] text-[color:#fbbf24]"
-                          : "border-[color:rgba(22,163,74,0.3)] text-[color:#4ade80]"
+                          ? "border-[color:var(--badge-warning-border)] text-[color:var(--badge-warning-text)]"
+                          : "border-[color:var(--badge-success-border)] text-[color:var(--badge-success-text)]"
                       )}
                     >
                       {market.riskBand}
@@ -179,7 +179,7 @@ export function MarketBrowser() {
                 </div>
 
                 <div className="mb-3 space-y-2">
-                  {market.outcomes.map((outcome) => {
+                  {market.outcomes.map((outcome, outcomeIndex) => {
                     const isSelected = selectedLegs.some(
                       (leg) =>
                         leg.marketId === market.marketId &&
@@ -222,6 +222,7 @@ export function MarketBrowser() {
                               addLeg({
                                 marketId: market.marketId,
                                 outcomeId: outcome.outcomeId,
+                                outcomeIndex,
                                 question: market.question,
                                 outcomeLabel: outcome.label,
                                 category: market.category,
@@ -235,7 +236,7 @@ export function MarketBrowser() {
                           className={cn(
                             "shrink-0 font-mono text-[10px] uppercase tracking-wider transition-colors duration-150",
                             isSelected
-                              ? "text-[color:#60a5fa]"
+                              ? "text-[color:var(--badge-accent-text)]"
                               : "text-[color:var(--text-tertiary)] hover:text-[color:var(--text-primary)]"
                           )}
                         >

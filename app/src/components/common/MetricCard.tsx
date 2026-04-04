@@ -7,8 +7,8 @@ type MetricCardProps = {
 
 const valueClassNames: Record<string, string> = {
   default: "text-[color:var(--text-primary)]",
-  accent:  "text-[color:#60a5fa]",
-  warning: "text-[color:#fbbf24]",
+  accent:  "text-[color:var(--metric-accent-text)]",
+  warning: "text-[color:var(--metric-warning-text)]",
 };
 
 export function MetricCard({ metric }: MetricCardProps) {

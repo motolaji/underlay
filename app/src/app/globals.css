@@ -2,7 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Light theme (default) ─────────────────────────────────────── */
 :root {
+  /* Backgrounds */
+  --bg-base:      #ffffff;
+  --bg-surface:   #f8f8f8;
+  --bg-elevated:  #f0f0f0;
+  --bg-overlay:   #e8e8e8;
+
+  /* Borders */
+  --border-subtle:  #ebebeb;
+  --border-default: #d4d4d4;
+  --border-strong:  #a3a3a3;
+
+  /* Text */
+  --text-primary:   #0a0a0a;
+  --text-secondary: #525252;
+  --text-tertiary:  #a3a3a3;
+
+  /* Brand accents */
+  --accent-blue:   #1d4ed8;
+  --accent-green:  #15803d;
+  --accent-red:    #b91c1c;
+  --accent-amber:  #b45309;
+  --accent-white:  #ffffff;
+
+  /* Data colours */
+  --data-positive: #16a34a;
+  --data-negative: #dc2626;
+  --data-neutral:  #6b7280;
+
+  /* Risk tier colours */
+  --risk-low:     #15803d;
+  --risk-medium:  #b45309;
+  --risk-high:    #b91c1c;
+
+  /* Soft accents */
+  --accent-soft:  rgba(29, 78, 216, 0.07);
+  --warning:      #b45309;
+  --warning-soft: rgba(180, 83, 9, 0.07);
+  --danger:       #b91c1c;
+
+  /* Nav blur background */
+  --nav-bg: rgba(255, 255, 255, 0.82);
+
+  /* Legacy aliases */
+  --bg:           #ffffff;
+  --surface:      #f8f8f8;
+  --surface-2:    #f0f0f0;
+  --surface-3:    #e8e8e8;
+  --text:         #0a0a0a;
+  --muted:        #525252;
+  --line:         #ebebeb;
+  --line-strong:  #d4d4d4;
+  --accent:       #1d4ed8;
+  --accent-strong:#1d4ed8;
+
+  /* Badge colour tokens */
+  --badge-default-border: #d4d4d4;
+  --badge-default-bg:     #f5f5f5;
+  --badge-default-text:   #525252;
+
+  --badge-accent-border:  rgba(29, 78, 216, 0.3);
+  --badge-accent-bg:      rgba(29, 78, 216, 0.07);
+  --badge-accent-text:    #1d4ed8;
+
+  --badge-warning-border: rgba(180, 83, 9, 0.3);
+  --badge-warning-bg:     rgba(180, 83, 9, 0.07);
+  --badge-warning-text:   #b45309;
+
+  --badge-danger-border:  rgba(185, 28, 28, 0.3);
+  --badge-danger-bg:      rgba(185, 28, 28, 0.07);
+  --badge-danger-text:    #b91c1c;
+
+  --badge-success-border: rgba(21, 128, 61, 0.3);
+  --badge-success-bg:     rgba(21, 128, 61, 0.07);
+  --badge-success-text:   #15803d;
+
+  /* Metric tone tokens */
+  --metric-accent-text:   #1d4ed8;
+  --metric-warning-text:  #b45309;
+}
+
+/* ─── Dark theme ─────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
   /* Backgrounds */
   --bg-base:      #080808;
   --bg-surface:   #0f0f0f;
@@ -20,10 +103,10 @@
   --text-tertiary:  #4a4a4a;
 
   /* Brand accents */
+  --accent-blue:   #2563eb;
   --accent-green:  #16a34a;
   --accent-red:    #dc2626;
   --accent-amber:  #d97706;
-  --accent-blue:   #2563eb;
   --accent-white:  #ffffff;
 
   /* Data colours */
@@ -36,7 +119,16 @@
   --risk-medium:  #d97706;
   --risk-high:    #dc2626;
 
-  /* Legacy aliases used across components */
+  /* Soft accents */
+  --accent-soft:  rgba(37, 99, 235, 0.1);
+  --warning:      #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.1);
+  --danger:       #dc2626;
+
+  /* Nav blur background */
+  --nav-bg: rgba(8, 8, 8, 0.82);
+
+  /* Legacy aliases */
   --bg:           #080808;
   --surface:      #0f0f0f;
   --surface-2:    #161616;
@@ -47,10 +139,31 @@
   --line-strong:  #2a2a2a;
   --accent:       #2563eb;
   --accent-strong:#1d4ed8;
-  --accent-soft:  rgba(37, 99, 235, 0.1);
-  --warning:      #d97706;
-  --warning-soft: rgba(217, 119, 6, 0.1);
-  --danger:       #dc2626;
+
+  /* Badge colour tokens */
+  --badge-default-border: #2a2a2a;
+  --badge-default-bg:     #161616;
+  --badge-default-text:   #8a8a8a;
+
+  --badge-accent-border:  rgba(37, 99, 235, 0.3);
+  --badge-accent-bg:      rgba(37, 99, 235, 0.08);
+  --badge-accent-text:    #60a5fa;
+
+  --badge-warning-border: rgba(217, 119, 6, 0.35);
+  --badge-warning-bg:     rgba(217, 119, 6, 0.08);
+  --badge-warning-text:   #fbbf24;
+
+  --badge-danger-border:  rgba(220, 38, 38, 0.35);
+  --badge-danger-bg:      rgba(220, 38, 38, 0.08);
+  --badge-danger-text:    #f87171;
+
+  --badge-success-border: rgba(22, 163, 74, 0.35);
+  --badge-success-bg:     rgba(22, 163, 74, 0.08);
+  --badge-success-text:   #4ade80;
+
+  /* Metric tone tokens */
+  --metric-accent-text:   #60a5fa;
+  --metric-warning-text:  #fbbf24;
 }
 
 * {
@@ -104,10 +217,10 @@ select {
 
 @layer components {
   .section-shell {
-    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8;
+    @apply w-full px-4 sm:px-6;
   }
 
-  /* Surface tokens — dark, border-only, sharp */
+  /* Surface tokens — border-only, sharp */
   .surface {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
@@ -122,6 +235,15 @@ select {
 
   .toolbar {
     background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+  }
+
+  /* Frosted glass nav — sticky headers only */
+  .nav-toolbar {
+    background-color: var(--nav-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid var(--border-subtle);
     border-radius: 4px;
   }

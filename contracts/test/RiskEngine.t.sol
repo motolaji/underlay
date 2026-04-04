@@ -5,7 +5,7 @@ import {Stage2Fixtures} from "./helpers/Stage2Fixtures.sol";
 
 contract RiskEngineTest is Stage2Fixtures {
     function test_submitPosition_belowGate_skipsWorldId() public {
-        bytes32 positionId = _submitPosition(1e6, 5e6);
+        bytes32 positionId = _submitPosition(1e6, 2e6);
 
         assertTrue(positionId != bytes32(0));
         assertEq(usdc.balanceOf(address(book)), 1e6);
@@ -27,18 +27,18 @@ contract RiskEngineTest is Stage2Fixtures {
         resolutionTimes[0] = uint64(block.timestamp + 1 days);
 
         vm.startPrank(bettor);
-        usdc.approve(address(risk), 3e6);
+        usdc.approve(address(risk), 1500000);
         vm.expectRevert();
         risk.submitPosition(
             marketIds,
             outcomes,
             lockedOdds,
             resolutionTimes,
-            3e6,
+            1500000,
             1_500_000,
             0,
             bytes32(0),
-            5e6,
+            2e6,
             1,
             123,
             [uint256(0), 0, 0, 0, 0, 0, 0, 0]
@@ -60,17 +60,17 @@ contract RiskEngineTest is Stage2Fixtures {
         resolutionTimes[0] = uint64(block.timestamp + 1 days);
 
         vm.startPrank(bettor);
-        usdc.approve(address(risk), 10e6);
+        usdc.approve(address(risk), 3e6);
         risk.submitPosition(
             marketIds,
             outcomes,
             lockedOdds,
             resolutionTimes,
-            3e6,
+            1500000,
             1_500_000,
             0,
             bytes32(0),
-            5e6,
+            2e6,
             1,
             123,
             [uint256(0), 0, 0, 0, 0, 0, 0, 0]
@@ -82,11 +82,11 @@ contract RiskEngineTest is Stage2Fixtures {
             outcomes,
             lockedOdds,
             resolutionTimes,
-            3e6,
+            1500000,
             1_500_000,
             0,
             bytes32(0),
-            5e6,
+            2e6,
             1,
             123,
             [uint256(0), 0, 0, 0, 0, 0, 0, 0]
