@@ -41,9 +41,6 @@ export function useSlipValidation(
         ? "Enter a valid USDC amount with up to 6 decimals."
         : null,
       isOverMaxStake ? "Stake exceeds the configured max stake." : null,
-      selectedCount > 0
-        ? "AI risk scoring and quote locking will unlock once /api/risk is wired."
-        : null,
     ].filter(Boolean) as string[];
 
     return {

@@ -1,13 +1,12 @@
 import { MarketWorkspace } from "@/components/markets/MarketWorkspace";
-import { ProtocolStrip } from "@/components/shell/ProtocolStrip";
-import { protocolMetrics } from "@/content/home";
+import { ProtocolStripLive } from "@/components/shell/ProtocolStripLive";
 
 export default function AppPage() {
   return (
     <>
       {/* Compact stats bar */}
       <section className="section-shell pt-4">
-        <ProtocolStrip metrics={protocolMetrics} />
+        <ProtocolStripLive />
       </section>
 
       {/* Market workspace: browser + betslip */}

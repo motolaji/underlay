@@ -7,6 +7,7 @@ export type SelectedLeg = {
   outcomeLabel: string;
   category: VaultCategory | "other";
   referenceProbability: number;
+  closesAt: string;
   closesAtLabel: string;
 };
 

@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 2 core contracts, settlement, and routing verified
+- Current phase: Round 3 live app integrations in progress
 - Last updated: 2026-04-03
 
 ## Completed
@@ -108,6 +108,31 @@
 - Added `contracts/test/PositionRouter.t.sol`
 - Verified lowest-utilisation routing and vault eligibility behavior
 
+### 2026-04-03 - Live market and risk API integration
+
+- Added `app/src/app/api/markets/route.ts`
+- Added `app/src/app/api/risk/route.ts`
+- Added `app/src/lib/polymarket.ts`
+- Added `app/src/lib/pricing.ts`
+- Added `app/src/lib/server/risk-engine.ts`
+- Added `app/src/types/market.ts`
+- Expanded app DTO and domain types for live market and risk payloads
+- Added query hooks:
+  - `app/src/hooks/queries/useMarketsQuery.ts`
+  - `app/src/hooks/queries/useVaultStateQuery.ts`
+- Added `app/src/components/shell/ProtocolStripLive.tsx`
+- Wired `app/src/components/markets/MarketBrowser.tsx` to `/api/markets` with preview fallback
+- Wired `app/src/components/cart/CartDrawer.tsx` to `/api/risk`, quote calculation, and optional live vault utilization reads
+- Expanded `app/.env.example` with contract and 0G environment variables
+- Installed server-side 0G integration dependencies in the app workspace
+
+### 2026-04-03 - Gamma event category enrichment
+
+- Enriched `/api/markets` with follow-up `Gamma /events` fetches using embedded event IDs
+- Added event/tag-based category normalization before local keyword fallback
+- Expanded mixed/macro mappings for weather, shipping, culture, and geopolitics-style markets
+- Reduced uncategorized live markets in the current top market slice to zero
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -117,6 +142,7 @@
 - `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
 - `contracts`: `forge build` - passed
 - `contracts`: `forge test -vv` - passed (17 tests)
+- `app`: live market/risk integration build verified
 
 ## In Progress
 
@@ -124,20 +150,12 @@
 
 ## Up Next
 
-### Round 2 - Core contracts
-
-1. Implement `SettlementManager.sol`
-2. Add any missing read methods uncovered by app integration
-3. Connect the frontend workspace to live contract reads
-4. Begin `/api/markets` and `/api/risk` integration work
-5. Wire contract addresses and env configuration for app integration
-
 ### Round 3 - Live integrations
 
-1. Write `/api/markets` Gamma proxy
-2. Write `/api/risk` 0G Compute route
-3. Replace preview market data with live market data
-4. Add 0G audit receipt fetching
+1. Wire deployed contract addresses into `app/.env.local`
+2. Connect the app workspace to live onchain reads end-to-end
+3. Implement World ID frontend verification flow
+4. Add 0G audit receipt fetching route/UI
 5. Implement CRE settlement workflow logic
 
 ## Decisions Locked During Foundation
@@ -164,6 +182,12 @@
 - Issue: `NEXT_PUBLIC_REOWN_PROJECT_ID` is not set
 - Impact: wallet connection UI is scaffolded, but AppKit remains disabled until a real project ID is provided
 - Resolution path: add the env var in `app/.env.local`
+
+### 0G configuration - PARTIAL
+
+- Issue: `OG_PRIVATE_KEY`, `OG_EVM_RPC`, and `OG_INDEXER_RPC` are not configured locally
+- Impact: `/api/risk` compiles and attempts real 0G compute/storage, but falls back to rule-based scoring and local audit hashes when 0G config is absent or unavailable
+- Resolution path: add the 0G env vars in `app/.env.local` and re-test the route in a configured environment
 
 ### Network metadata - BLOCKED
 

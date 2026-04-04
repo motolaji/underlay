@@ -1,11 +1,14 @@
 export type PreviewMarket = {
   marketId: string;
+  slug: string;
   category: "sports" | "crypto" | "politics";
   question: string;
+  closesAt: string;
   closesAtLabel: string;
   note: string;
   routeLabel: string;
-  availableCapacityLabel: string;
+  liquidityLabel: string;
+  volumeLabel: string;
   riskBand: "Low" | "Medium" | "High";
   outcomes: Array<{
     outcomeId: string;

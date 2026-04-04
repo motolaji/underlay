@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { SlipStoreState } from "@/types/store";
 import type { SelectedLeg } from "@/types/domain";
+import type { RiskAssessmentResponseDto } from "@/types/dto";
 
 type SlipStore = SlipStoreState & {
   addLeg: (leg: SelectedLeg) => void;
@@ -8,6 +9,7 @@ type SlipStore = SlipStoreState & {
   clearLegs: () => void;
   setStakeInput: (value: string) => void;
   setValidation: (value: SlipStoreState["validation"]) => void;
+  setRisk: (value: RiskAssessmentResponseDto | null) => void;
 };
 
 function isSameLeg(a: SelectedLeg, b: SelectedLeg) {
@@ -40,4 +42,5 @@ export const useSlipStore = create<SlipStore>((set) => ({
   clearLegs: () => set({ selectedLegs: [], validation: null, risk: null }),
   setStakeInput: (value) => set({ stakeInput: value }),
   setValidation: (value) => set({ validation: value }),
+  setRisk: (value) => set({ risk: value }),
 }));
