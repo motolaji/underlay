@@ -19,8 +19,8 @@ contract PositionBookTest is Stage2Fixtures {
         uint256 assetsBefore = vault.totalAssets();
 
         vm.startPrank(settlementOperator);
-        book.resolveLeg(positionId, 0, true);
-        book.resolveLeg(positionId, 1, false);
+        settlement.resolveLeg(positionId, 0, true);
+        settlement.resolveLeg(positionId, 1, false);
         vm.stopPrank();
 
         PositionBook.Position memory position = book.getPosition(positionId);
@@ -33,10 +33,12 @@ contract PositionBookTest is Stage2Fixtures {
         uint256 balanceBefore = usdc.balanceOf(bettor);
 
         vm.startPrank(settlementOperator);
-        book.resolveLeg(positionId, 0, true);
-        book.resolveLeg(positionId, 1, true);
-        book.executePayout(positionId);
+        settlement.resolveLeg(positionId, 0, true);
+        settlement.resolveLeg(positionId, 1, true);
         vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 hours + 1);
+        settlement.executeSettlement(positionId);
 
         assertGt(usdc.balanceOf(bettor), balanceBefore);
     }

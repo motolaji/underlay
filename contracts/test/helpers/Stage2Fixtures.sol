@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {VaultManager} from "../../src/VaultManager.sol";
 import {PositionBook} from "../../src/PositionBook.sol";
 import {RiskEngine} from "../../src/RiskEngine.sol";
+import {SettlementManager} from "../../src/SettlementManager.sol";
 import {IAaveV3Pool} from "../../src/interfaces/IAaveV3Pool.sol";
 import {IAToken} from "../../src/interfaces/IAToken.sol";
 import {IPositionBook} from "../../src/interfaces/IPositionBook.sol";
@@ -33,6 +34,7 @@ contract Stage2Fixtures is Test {
     VaultManager internal vault;
     PositionBook internal book;
     RiskEngine internal risk;
+    SettlementManager internal settlement;
 
     function setUp() public virtual {
         cfg = VaultConfig.testnet();
@@ -56,10 +58,12 @@ contract Stage2Fixtures is Test {
         book = new PositionBook(IERC20(address(usdc)), IVaultManager(address(vault)), cfg, 1, 10, owner);
         risk = new RiskEngine(IERC20(address(usdc)), IWorldID(address(worldId)), "app_test", "place-position", cfg, owner);
 
+        settlement = new SettlementManager(IPositionBook(address(book)), settlementOperator, owner, owner);
+
         vault.setPositionBook(address(book));
-        vault.setSettlementManager(settlementOperator);
+        vault.setSettlementManager(address(settlement));
         book.setRiskEngine(address(risk));
-        book.setSettlementManager(settlementOperator);
+        book.setSettlementManager(address(settlement));
         risk.setPositionBook(IPositionBook(address(book)));
 
         vm.stopPrank();

@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 2 core contracts implemented and verified
+- Current phase: Round 2 core contracts and settlement verified
 - Last updated: 2026-04-03
 
 ## Completed
@@ -93,6 +93,14 @@
 - Verified Stage 2 contracts with `forge build`
 - Verified Stage 2 tests with `forge test -vv`
 
+### 2026-04-03 - Settlement manager implementation
+
+- Added `contracts/src/SettlementManager.sol`
+- Expanded `contracts/src/interfaces/IPositionBook.sol` for settlement-facing reads and write hooks
+- Updated `contracts/src/PositionBook.sol` to support challenge-driven voiding of pending won positions
+- Added `contracts/test/SettlementManager.t.sol`
+- Updated Stage 2 fixtures to deploy and wire the real `SettlementManager`
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -101,7 +109,7 @@
 - `cre-workflow`: `npm run build` - passed
 - `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
 - `contracts`: `forge build` - passed
-- `contracts`: `forge test -vv` - passed (9 tests)
+- `contracts`: `forge test -vv` - passed (13 tests)
 
 ## In Progress
 
@@ -112,9 +120,9 @@
 ### Round 2 - Core contracts
 
 1. Implement `SettlementManager.sol`
-2. Add tests for settlement delay, challenge, and payout execution
-3. Add any missing read methods uncovered by app integration
-4. Connect the frontend workspace to live contract reads
+2. Add any missing read methods uncovered by app integration
+3. Connect the frontend workspace to live contract reads
+4. Implement `PositionRouter.sol`
 5. Begin `/api/markets` and `/api/risk` integration work
 
 ### Round 3 - Live integrations

@@ -284,7 +284,7 @@ contract PositionBook is Ownable, ReentrancyGuard {
             revert PositionBookPositionNotFound();
         }
 
-        if (position.status == PositionStatus.WON || position.status == PositionStatus.LOST || position.status == PositionStatus.VOIDED) {
+        if (position.status == PositionStatus.LOST || position.status == PositionStatus.VOIDED) {
             revert PositionBookAlreadySettled();
         }
 
@@ -322,11 +322,16 @@ contract PositionBook is Ownable, ReentrancyGuard {
             revert PositionBookPositionNotFound();
         }
 
-        if (position.status == PositionStatus.WON || position.status == PositionStatus.LOST || position.status == PositionStatus.VOIDED) {
+        if (
+            position.status == PositionStatus.LOST ||
+            position.status == PositionStatus.VOIDED ||
+            (position.status == PositionStatus.WON && position.potentialPayout == 0)
+        ) {
             revert PositionBookAlreadySettled();
         }
 
         position.status = PositionStatus.VOIDED;
+        position.potentialPayout = 0;
 
         for (uint256 i = 0; i < positionLegs[positionId].length; ++i) {
             if (positionLegs[positionId][i].status == LegStatus.OPEN) {
