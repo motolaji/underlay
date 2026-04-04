@@ -4,7 +4,7 @@
 
 - Started: ETHGlobal Cannes 2026
 - Current phase: Round 3 live app integrations with faucet-friendly testnet deployment active
-- Last updated: 2026-04-03
+- Last updated: 2026-04-04
 
 ## Completed
 
@@ -210,6 +210,34 @@
 - Added LP approve and deposit actions against the live Base Sepolia deployment
 - Added explicit faucet-mode testnet framing in the app workspace, LP page, and protocol page
 
+### 2026-04-04 - Frontend visual redesign and theme system
+
+- Replaced warm editorial paper UI with a Bloomberg Terminal / Vercel-inspired system
+- Default theme changed to light (white background, dark text) with dark mode toggle
+- Dark mode: `#080808` base, `#f0f0f0` primary text
+- Fonts updated to Syne (display), Inter (body), DM Mono (mono)
+- Dual theme via `:root` / `:root[data-theme="dark"]` CSS custom properties — no hardcoded hex anywhere in components
+- Added `ThemeApplicator` client component (localStorage persistence, `data-theme` on `<html>`, no hydration mismatch)
+- Added theme toggle (sun/moon SVG) to both `AppNav` and `MarketingNav`
+- Added frosted glass blur to navbars (`backdrop-filter: blur(14px)`, semi-transparent `--nav-bg`)
+- Removed `max-w-[1240px]` constraint from `.section-shell` — app now stretches full width
+- Replaced betslip modal/drawer with a sticky right layout panel in `MarketWorkspace` (360px, `position: sticky, height: calc(100vh - 104px)`)
+- Betslip made scrollable with `overflow-y: auto` inside the panel
+- Added `animate-slide-in-right` entrance for betslip panel
+- Market cards rebuilt as compact always-expanded rows with inline probability bars
+- Added globe SVG visual to homepage hero (sphere, latitude/longitude lines, market nodes, pulse rings — all CSS variable colors)
+- Replaced scaffolding placeholder copy with real product copy across all pages
+- Added audience split section (Bettors / LPs) to homepage with dedicated CTAs
+- Badge and metric tokens added to CSS variables for StatusBadge and MetricCard
+
+### 2026-04-04 - 0G integration finalization
+
+- Fixed `ZgFile.fromBuffer` bug — method does not exist in `@0glabs/0g-ts-sdk` v0.3.3; replaced with `new MemData(buffer)` which extends `AbstractFile` with the same `merkleTree()` / `merkleSize()` interface
+- Verified `broker.inference.listService()`, `getServiceMetadata()`, `getRequestHeaders()`, `processResponse()` all match the actual v0.7.4 API (confirmed from `lib.commonjs` source + `.d.ts` types)
+- Added `GET /api/og-status` endpoint: connects to 0G Galileo, calls `listService()`, returns available compute providers or a structured error if `OG_PRIVATE_KEY` is missing/invalid
+- Updated `.env.local` with inline instructions for funding the 0G wallet and depositing compute credits
+- 0G compute and storage are now fully wired; the only activation step remaining is setting `OG_PRIVATE_KEY` to a funded Galileo wallet
+
 ### 2026-04-04 - Bettor submit and positions integration
 
 - Added live bettor submission scaffolding to the cart using the deployed `RiskEngine`
@@ -254,11 +282,9 @@
 
 ### Round 3 - Live integrations
 
-1. Restart the app dev server so it picks up the final live contract addresses
-2. Set `WORLD_RP_SIGNING_KEY` so World ID proof requests can be generated end-to-end
-3. Add 0G audit receipt fetching route/UI
-4. Test live bettor submission flow from the app into `RiskEngine.sol`
-5. Expand position detail rendering with per-leg reads and settlement state
+1. Set `WORLD_RP_SIGNING_KEY` so World ID proof requests can be generated end-to-end
+2. Test live bettor submission flow from the app into `RiskEngine.sol`
+3. Expand position detail rendering with per-leg reads and settlement state
 
 ### Round 4 - Deployment
 
@@ -296,11 +322,12 @@
 - Impact: wallet connection UI is scaffolded, but AppKit remains disabled until a real project ID is provided
 - Resolution path: add the env var in `app/.env.local`
 
-### 0G configuration - PARTIAL
+### 0G configuration - RESOLVED
 
-- Issue: `OG_PRIVATE_KEY`, `OG_EVM_RPC`, and `OG_INDEXER_RPC` are not configured locally
-- Impact: `/api/risk` compiles and attempts real 0G compute/storage, but falls back to rule-based scoring and local audit hashes when 0G config is absent or unavailable
-- Resolution path: add the 0G env vars in `app/.env.local` and re-test the route in a configured environment
+- `OG_PRIVATE_KEY` set, 3 0G deposited into compute ledger (tx: `0xfb3a88120d91984139f7415766cd39857b6e4f91ce716a94543c61f5b9ebacd0`)
+- `/api/og-status` confirmed `configured: true` with live service `qwen/qwen-2.5-7b-instruct`
+- Risk engine updated to select any non-image model (Qwen instead of Llama)
+- Live AI scoring and 0G Storage audit receipts are now active
 
 ### World ID request signing - PARTIAL
 
@@ -328,9 +355,11 @@ CHAINLINK
   BTC/USD Feed (Base):       [pending]
 
 0G
-  Chain RPC:                 [pending]
-  Compute endpoint:          [pending]
-  Storage endpoint:          [pending]
+  Chain RPC (Galileo):       https://evmrpc-testnet.0g.ai
+  Storage indexer:           https://indexer-storage-testnet-turbo.0g.ai
+  Compute endpoint:          dynamic — resolved via broker.inference.listService()
+  Status check:              GET /api/og-status
+  Private key:               OG_PRIVATE_KEY (not set — fund at https://faucet.0g.ai)
 
 AAVE V3
   Pool address (Base):       0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27

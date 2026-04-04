@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { erc20Abi } from "viem";
 import {
   useAccount,
@@ -61,6 +61,8 @@ export function CartDrawer() {
   const [riskError, setRiskError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [txMode, setTxMode] = useState<"approve" | "submit" | null>(null);
+  const [optimisticAllowance, setOptimisticAllowance] = useState<bigint>(0n);
+  const [autoSubmitAfterApproval, setAutoSubmitAfterApproval] = useState(false);
 
   const usdcAddress = contractAddresses.baseSepolia.usdc;
   const riskEngineAddress = contractAddresses.baseSepolia.riskEngine;
@@ -126,7 +128,11 @@ export function CartDrawer() {
 
   const worldIdRequired = parsedStake > TESTNET_VAULT_CONFIG.worldIdGateRaw;
   const currentAllowance = allowanceQuery.data ?? 0n;
-  const needsApproval = parsedStake > 0n && currentAllowance < parsedStake;
+  const effectiveAllowance =
+    optimisticAllowance > currentAllowance
+      ? optimisticAllowance
+      : currentAllowance;
+  const needsApproval = parsedStake > 0n && effectiveAllowance < parsedStake;
 
   const canRequestRisk =
     validation.canRequestRisk && selectedLegs.length > 0 && parsedStake > 0n;
@@ -151,6 +157,11 @@ export function CartDrawer() {
       setWorldIdVerified(false);
     }
   }, [setWorldIdProof, setWorldIdVerified, worldIdRequired]);
+
+  useEffect(() => {
+    setOptimisticAllowance(0n);
+    setAutoSubmitAfterApproval(false);
+  }, [address, parsedStake]);
 
   useEffect(() => {
     if (!canRequestRisk) {
@@ -224,64 +235,8 @@ export function CartDrawer() {
     setRisk,
   ]);
 
-  useEffect(() => {
-    if (!receiptQuery.isSuccess || !txMode) {
-      return;
-    }
-
-    if (txMode === "approve") {
-      void allowanceQuery.refetch();
-      setSubmissionState("idle");
-      setTxHash(undefined);
-      setTxMode(null);
-      return;
-    }
-
-    setSubmissionState("success", txHash);
-    setTxMode(null);
-  }, [
-    allowanceQuery,
-    receiptQuery.isSuccess,
-    setSubmissionState,
-    txHash,
-    txMode,
-  ]);
-
-  const maxAllowedStakeRaw = useMemo(() => {
-    if (!risk) {
-      return TESTNET_VAULT_CONFIG.maxStakeRaw;
-    }
-
-    return BigInt(risk.maxAllowedStakeRaw);
-  }, [risk]);
-
-  async function handleApprove() {
-    if (!usdcAddress || !riskEngineAddress || parsedStake === 0n) {
-      return;
-    }
-
-    try {
-      setSubmissionState("approving", undefined, null);
-      setTxMode("approve");
-      const hash = await writeContractAsync({
-        address: usdcAddress,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [riskEngineAddress, parsedStake],
-      });
-      setTxHash(hash);
-    } catch (error) {
-      setSubmissionState(
-        "error",
-        undefined,
-        error instanceof Error ? error.message : "Approval failed."
-      );
-      setTxMode(null);
-    }
-  }
-
-  async function handleSubmit() {
-    if (!riskEngineAddress || !risk || !quote || !canSubmit) {
+  const handleSubmit = useCallback(async () => {
+    if (!riskEngineAddress || !risk || !quote || !address) {
       return;
     }
 
@@ -321,6 +276,88 @@ export function CartDrawer() {
         "error",
         undefined,
         error instanceof Error ? error.message : "Position submission failed."
+      );
+      setTxMode(null);
+    }
+  }, [
+    address,
+    parsedStake,
+    quote,
+    risk,
+    riskEngineAddress,
+    selectedLegs,
+    setSubmissionState,
+    worldIdProof,
+    writeContractAsync,
+  ]);
+
+  useEffect(() => {
+    if (!receiptQuery.isSuccess || !txMode) {
+      return;
+    }
+
+    if (txMode === "approve") {
+      setOptimisticAllowance(parsedStake);
+      setSubmissionState("idle");
+      setTxHash(undefined);
+      setTxMode(null);
+      setAutoSubmitAfterApproval(true);
+      void allowanceQuery.refetch();
+      return;
+    }
+
+    setSubmissionState("success", txHash);
+    setTxMode(null);
+  }, [
+    allowanceQuery,
+    parsedStake,
+    receiptQuery.isSuccess,
+    setSubmissionState,
+    txHash,
+    txMode,
+  ]);
+
+  useEffect(() => {
+    if (!autoSubmitAfterApproval || txMode || isPending) {
+      return;
+    }
+
+    if (!canSubmit) {
+      return;
+    }
+
+    setAutoSubmitAfterApproval(false);
+    void handleSubmit();
+  }, [autoSubmitAfterApproval, canSubmit, handleSubmit, isPending, txMode]);
+
+  const maxAllowedStakeRaw = useMemo(() => {
+    if (!risk) {
+      return TESTNET_VAULT_CONFIG.maxStakeRaw;
+    }
+
+    return BigInt(risk.maxAllowedStakeRaw);
+  }, [risk]);
+
+  async function handleApprove() {
+    if (!usdcAddress || !riskEngineAddress || parsedStake === 0n) {
+      return;
+    }
+
+    try {
+      setSubmissionState("approving", undefined, null);
+      setTxMode("approve");
+      const hash = await writeContractAsync({
+        address: usdcAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [riskEngineAddress, parsedStake],
+      });
+      setTxHash(hash);
+    } catch (error) {
+      setSubmissionState(
+        "error",
+        undefined,
+        error instanceof Error ? error.message : "Approval failed."
       );
       setTxMode(null);
     }
@@ -657,6 +694,8 @@ export function CartDrawer() {
         <p className="mt-2 text-center font-mono text-[10px] text-[color:var(--text-tertiary)]">
           {worldIdRequired && !worldIdVerified
             ? "World ID verification is required for this stake."
+            : autoSubmitAfterApproval
+            ? "Approval confirmed. Submitting automatically..."
             : "Submissions are sent directly to the live RiskEngine on Base Sepolia."}
         </p>
       </div>

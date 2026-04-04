@@ -25,6 +25,8 @@ export function WorldIdVerifyButton({
     | `app_${string}`
     | undefined;
   const action = process.env.NEXT_PUBLIC_WORLD_ACTION_ID ?? "place-position";
+  const returnTo =
+    typeof window !== "undefined" ? window.location.href : undefined;
   const [open, setOpen] = useState(false);
   const [rpContext, setRpContext] = useState<RpContext | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,9 @@ export function WorldIdVerifyButton({
           onOpenChange={setOpen}
           app_id={appId}
           action={action}
+          action_description="Verify identity to place a high-stake position"
           rp_context={rpContext}
+          return_to={returnTo}
           allow_legacy_proofs
           preset={orbLegacy({ signal: walletAddress })}
           onSuccess={handleSuccess}

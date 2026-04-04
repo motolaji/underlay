@@ -39,8 +39,8 @@ export async function assessRisk(
     return ogResult;
   } catch (error) {
     console.warn(
-      "0G risk scoring unavailable, using rule-based fallback",
-      error
+      "[0G] risk scoring unavailable, using rule-based fallback:",
+      error instanceof Error ? error.message : error
     );
     return scoreRuleBased(payload, requestId);
   }
@@ -87,9 +87,14 @@ async function scoreWith0GCompute(
   const signer = new ethersModule.Wallet(privateKey, provider);
   const broker = await createZGComputeNetworkBroker(signer);
   const services = await broker.inference.listService();
+
+  // Prefer any chat/text model — exclude image-only services
+  const IMAGE_KEYWORDS = ["image", "vision", "img", "clip", "diffusion"];
   const llmService = services.find(
-    (service: { model?: string; provider?: string }) =>
-      service.model?.toLowerCase().includes("llama")
+    (service: { model?: string; provider?: string }) => {
+      const model = service.model?.toLowerCase() ?? "";
+      return !IMAGE_KEYWORDS.some((kw) => model.includes(kw));
+    }
   );
 
   if (!llmService) {
@@ -105,7 +110,7 @@ async function scoreWith0GCompute(
     prompt
   );
 
-  const response = await fetch(`${metadata.endpoint}/v1/chat/completions`, {
+  const response = await fetch(`${metadata.endpoint}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
