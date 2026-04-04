@@ -281,7 +281,7 @@ async function persistRiskAudit(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sdk: any = await import("@0glabs/0g-ts-sdk");
     const ethersModule = await import("ethers");
-    const file = await sdk.ZgFile.fromBuffer(
+    const file = new sdk.MemData(
       Buffer.from(JSON.stringify(entry, null, 2), "utf-8")
     );
     const [tree, treeError] = await file.merkleTree();
