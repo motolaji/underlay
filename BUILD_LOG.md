@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 2 core contracts scaffolded, verification pending
+- Current phase: Round 2 core contracts implemented and verified
 - Last updated: 2026-04-03
 
 ## Completed
@@ -84,6 +84,15 @@
   - `contracts/test/PositionBook.t.sol`
   - `contracts/test/RiskEngine.t.sol`
 
+### 2026-04-03 - Stage 2 contract verification
+
+- Installed Foundry locally and added contract dependencies:
+  - `lib/openzeppelin-contracts`
+  - `lib/forge-std`
+- Enabled `via_ir = true` in `contracts/foundry.toml` to compile the current contract set cleanly
+- Verified Stage 2 contracts with `forge build`
+- Verified Stage 2 tests with `forge test -vv`
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -91,7 +100,8 @@
 - `app`: `npm run typecheck` - passed
 - `cre-workflow`: `npm run build` - passed
 - `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
-- `contracts`: verification still blocked because `forge` is not installed locally
+- `contracts`: `forge build` - passed
+- `contracts`: `forge test -vv` - passed (9 tests)
 
 ## In Progress
 
@@ -101,12 +111,11 @@
 
 ### Round 2 - Core contracts
 
-1. Install Foundry locally
-2. Run `forge build`
-3. Run `forge test`
-4. Fix any compile or test issues from live validation
-5. Implement `SettlementManager.sol`
-6. Add any missing read methods uncovered by app integration
+1. Implement `SettlementManager.sol`
+2. Add tests for settlement delay, challenge, and payout execution
+3. Add any missing read methods uncovered by app integration
+4. Connect the frontend workspace to live contract reads
+5. Begin `/api/markets` and `/api/risk` integration work
 
 ### Round 3 - Live integrations
 
@@ -119,8 +128,8 @@
 ## Decisions Locked During Foundation
 
 - Package manager for repo workflows: npm
-- Frontend tone: editorial plus consumer
-- Frontend theme: warm light newsprint
+- Frontend tone: contemporary product UI with strong consumer clarity
+- Frontend theme: light off-white base with white surfaces and lower radius
 - Homepage structure: real homepage with CTA into `/app`
 - App workspace: dedicated `/app` route with closable cart UX
 - Sponsor presentation: plain-text capability labels, not logo walls
@@ -128,12 +137,6 @@
 - Visual system: off-white base, modern fonts, lower radius, contemporary product UI
 
 ## Blockers
-
-### Foundry - BLOCKED
-
-- Issue: `forge` is not installed in the local environment
-- Impact: Stage 2 contracts and Foundry tests were written, but compilation and test execution could not be verified yet
-- Resolution path: install Foundry, then run `forge build` and `forge test` inside `contracts/`
 
 ### Chainlink CRE CLI - BLOCKED
 

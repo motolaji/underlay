@@ -10,6 +10,10 @@ import {IAToken} from "../../src/interfaces/IAToken.sol";
 contract MockAToken is ERC20, IAToken {
     constructor() ERC20("Mock Aave USDC", "maUSDC") {}
 
+    function balanceOf(address account) public view override(ERC20, IAToken) returns (uint256) {
+        return super.balanceOf(account);
+    }
+
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
