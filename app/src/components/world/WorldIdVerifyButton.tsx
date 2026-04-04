@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   IDKitRequestWidget,
-  orbLegacy,
+  deviceLegacy,
   type IDKitResult,
   type RpContext,
   type ResponseItemV3,
@@ -30,10 +30,6 @@ export function WorldIdVerifyButton({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [pendingResult, setPendingResult] = useState<
-    (IDKitResult & { protocol_version: "3.0" }) | null
-  >(null);
-  const [pollCount, setPollCount] = useState(0);
 
   async function prepareAndOpen() {
     if (!appId) {
@@ -70,102 +66,6 @@ export function WorldIdVerifyButton({
     }
   }
 
-  const finalizeProof = useCallback(
-    async (
-      result: IDKitResult & { protocol_version: "3.0" },
-      response: ResponseItemV3,
-      isRetry = false
-    ) => {
-      setLoading(true);
-      if (!isRetry) {
-        setStatus("Checking Base Sepolia proof readiness...");
-      }
-
-      try {
-        const verifyResponse = await fetch("/api/world-id/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            walletAddress,
-            result,
-          }),
-        });
-
-        const body = (await verifyResponse.json()) as {
-          ready?: boolean;
-          verified?: boolean;
-          code?: string;
-          error?: string;
-        };
-
-        if (body.ready) {
-          const [proof] = decodeAbiParameters(
-            parseAbiParameters("uint256[8]"),
-            response.proof as `0x${string}`
-          );
-
-          onVerified({
-            root: BigInt(response.merkle_root),
-            nullifierHash: BigInt(response.nullifier),
-            proof: [...proof] as [
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint,
-              bigint
-            ],
-          });
-
-          setPendingResult(null);
-          setPollCount(0);
-          setStatus("World ID proof verified and synced to Base Sepolia.");
-          setOpen(false);
-          return;
-        }
-
-        if (body.code === "root_pending") {
-          setPendingResult(result);
-          setPollCount((count) => count + 1);
-          setStatus(body.error ?? "Waiting for Base Sepolia root sync...");
-          return;
-        }
-
-        throw new Error(body.error ?? "World ID verification failed.");
-      } catch (nextError) {
-        setPendingResult(null);
-        setPollCount(0);
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "World ID verification failed."
-        );
-        setStatus(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [onVerified, walletAddress]
-  );
-
-  useEffect(() => {
-    if (!pendingResult || pollCount >= 12) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void finalizeProof(
-        pendingResult,
-        pendingResult.responses[0] as ResponseItemV3,
-        true
-      );
-    }, 10000);
-
-    return () => window.clearTimeout(timeout);
-  }, [finalizeProof, pendingResult, pollCount]);
-
   function handleSuccess(result: IDKitResult) {
     const response = result.responses[0] as ResponseItemV3 | undefined;
 
@@ -176,10 +76,49 @@ export function WorldIdVerifyButton({
       return;
     }
 
-    void finalizeProof(
-      result as IDKitResult & { protocol_version: "3.0" },
-      response
-    );
+    setLoading(true);
+    setStatus("Verifying proof...");
+
+    fetch("/api/world-id/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress, result }),
+    })
+      .then((res) => res.json())
+      .then((body: { ready?: boolean; verified?: boolean; code?: string; error?: string }) => {
+        if (body.ready) {
+          const [proof] = decodeAbiParameters(
+            parseAbiParameters("uint256[8]"),
+            response.proof as `0x${string}`
+          );
+
+          onVerified({
+            root: BigInt(response.merkle_root),
+            nullifierHash: BigInt(response.nullifier),
+            proof: [...proof] as [
+              bigint, bigint, bigint, bigint,
+              bigint, bigint, bigint, bigint
+            ],
+          });
+
+          setStatus("World ID proof verified.");
+          setOpen(false);
+        } else {
+          setError(body.error ?? "World ID verification failed.");
+          setStatus(null);
+        }
+      })
+      .catch((nextError: unknown) => {
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : "World ID verification failed."
+        );
+        setStatus(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }
 
   return (
@@ -190,7 +129,7 @@ export function WorldIdVerifyButton({
         disabled={loading || !walletAddress}
         className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] transition-colors hover:border-[color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {loading ? "Preparing World ID..." : "Verify with World ID"}
+        {loading ? "Verifying..." : "Verify with World ID"}
       </button>
 
       {error && (
@@ -209,7 +148,7 @@ export function WorldIdVerifyButton({
           action_description="Verify identity to place a high-stake position"
           rp_context={rpContext}
           allow_legacy_proofs={true}
-          preset={orbLegacy({ signal: walletAddress })}
+          preset={deviceLegacy({ signal: walletAddress })}
           onSuccess={handleSuccess}
           onError={(errorCode) => {
             setError(`World ID error: ${errorCode}`);

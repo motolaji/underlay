@@ -20,7 +20,7 @@ export function CartDock() {
       <span className="flex w-full items-center justify-between border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-4 py-3">
         <span>
           <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
-            Betslip
+            Position Builder
           </span>
           <span className="mt-0.5 block font-mono text-sm font-medium text-[color:var(--text-primary)]">
             {selectedCount} leg{selectedCount !== 1 ? "s" : ""} selected

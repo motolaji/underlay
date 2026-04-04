@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { positionBookAbi } from "@/lib/contracts/abi/positionBook";
+import { settlementManagerAbi } from "@/lib/contracts/abi/settlementManager";
 import { contractAddresses } from "@/lib/contracts/addresses";
 import { formatUsdc, shortenHash } from "@/lib/format";
+
+const BASE_SEPOLIA_SCAN = "https://sepolia.basescan.org";
 
 const POSITION_COLUMNS = ["State", "Position", "Legs", "Stake", "Payout", "Risk", "Placed"];
 
@@ -50,6 +53,7 @@ type PositionRow = {
   legsTotal: number;
   worldIdVerified: boolean;
   legs: Leg[];
+  readyToSettle: boolean;
 };
 
 function formatOdds(raw: bigint) {
@@ -59,7 +63,9 @@ function formatOdds(raw: bigint) {
 export default function AppPositionsPage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const { writeContract, isPending: isClaimPending } = useWriteContract();
   const positionBookAddress = contractAddresses.baseSepolia.positionBook;
+  const settlementManagerAddress = contractAddresses.baseSepolia.settlementManager;
   const [rows, setRows] = useState<PositionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +97,7 @@ export default function AppPositionsPage() {
   }
 
   useEffect(() => {
-    if (!publicClient || !address || !positionBookAddress) {
+    if (!publicClient || !address || !positionBookAddress || !settlementManagerAddress) {
       setRows([]);
       return;
     }
@@ -99,6 +105,7 @@ export default function AppPositionsPage() {
     const client = publicClient;
     const owner = address;
     const bookAddress = positionBookAddress as `0x${string}`;
+    const smAddress = settlementManagerAddress as `0x${string}` | undefined;
     let cancelled = false;
 
     async function loadPositions() {
@@ -120,7 +127,7 @@ export default function AppPositionsPage() {
 
         const details = await Promise.all(
           ids.map(async (id) => {
-            const [position, legs] = await Promise.all([
+            const [position, legs, readyToSettle] = await Promise.all([
               client.readContract({
                 address: bookAddress,
                 abi: positionBookAbi,
@@ -153,6 +160,14 @@ export default function AppPositionsPage() {
                   status: number;
                 }[]
               >,
+              smAddress
+                ? (client.readContract({
+                    address: smAddress,
+                    abi: settlementManagerAbi,
+                    functionName: "isReadyToSettle",
+                    args: [id],
+                  }) as Promise<boolean>).catch(() => false)
+                : Promise.resolve(false),
             ]);
 
             return {
@@ -168,6 +183,7 @@ export default function AppPositionsPage() {
               legsTotal: position.legsTotal,
               worldIdVerified: position.worldIdVerified,
               legs: legs.map((leg) => ({ ...leg })),
+              readyToSettle,
             } satisfies PositionRow;
           })
         );
@@ -190,7 +206,7 @@ export default function AppPositionsPage() {
 
     void loadPositions();
     return () => { cancelled = true; };
-  }, [address, positionBookAddress, publicClient]);
+  }, [address, positionBookAddress, settlementManagerAddress, publicClient]);
 
   return (
     <div className="section-shell space-y-6 py-6">
@@ -272,7 +288,7 @@ export default function AppPositionsPage() {
           ) : rows.length === 0 ? (
             <EmptyState
               title="No positions yet"
-              body="Once you submit a position from the betslip, it will appear here with full leg detail."
+              body="Once you submit a position from the position builder, it will appear here with full leg detail."
             />
           ) : (
             <div className="space-y-px">
@@ -296,9 +312,15 @@ export default function AppPositionsPage() {
 
                       {/* Position ID */}
                       <div>
-                        <div className="font-mono text-[11px] text-[color:var(--text-primary)]">
+                        <a
+                          href={`${BASE_SEPOLIA_SCAN}/address/${contractAddresses.baseSepolia.positionBook}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[11px] text-[color:var(--text-primary)] hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {shortenHash(row.id)}
-                        </div>
+                        </a>
                         <div className="mt-1 font-mono text-[10px] text-[color:var(--text-tertiary)]">
                           {row.worldIdVerified ? "World ID" : "No gate proof"}
                         </div>
@@ -381,14 +403,42 @@ export default function AppPositionsPage() {
                           </div>
                         </div>
 
-                        {/* Audit hash */}
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
-                            Risk audit
-                          </span>
-                          <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
-                            {shortenHash(row.riskAuditHash, 10, 8)}
-                          </span>
+                        {/* Footer: audit hash + claim + explorer link */}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+                              Risk audit
+                            </span>
+                            <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
+                              {shortenHash(row.riskAuditHash, 10, 8)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <a
+                              href={`${BASE_SEPOLIA_SCAN}/address/${contractAddresses.baseSepolia.settlementManager}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-[10px] text-[color:var(--text-tertiary)] hover:text-[color:var(--text-secondary)] hover:underline"
+                            >
+                              BaseScan ↗
+                            </a>
+                            {row.readyToSettle && settlementManagerAddress && (
+                              <button
+                                className="border border-[color:var(--badge-success-border)] px-3 py-1 font-mono text-[10px] text-[color:var(--badge-success-text)] hover:bg-[color:var(--badge-success-border)] transition-colors disabled:opacity-50"
+                                disabled={isClaimPending}
+                                onClick={() =>
+                                  writeContract({
+                                    address: settlementManagerAddress as `0x${string}`,
+                                    abi: settlementManagerAbi,
+                                    functionName: "executeSettlement",
+                                    args: [row.id],
+                                  })
+                                }
+                              >
+                                {isClaimPending ? "Claiming…" : "Claim payout"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}

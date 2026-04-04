@@ -179,6 +179,7 @@ export function CartDrawer() {
 
   const canRequestRisk =
     validation.canRequestRisk && selectedLegs.length > 0 && parsedStake > 0n;
+  const hasRisk = Boolean(risk);
   const canSubmit =
     isConnected &&
     Boolean(address) &&
@@ -208,77 +209,56 @@ export function CartDrawer() {
     setPendingApprovalAmountRaw(0n);
   }, [address, parsedStake, selectedLegs.length]);
 
+  // Clear risk score when legs change — stake changes alone do not invalidate the score
   useEffect(() => {
-    if (!canRequestRisk) {
+    if (risk) {
       setRisk(null);
       setRiskError(null);
-      return;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLegs]);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      setRiskLoading(true);
-      setRiskError(null);
+  const handleAssessRisk = useCallback(async () => {
+    if (!canRequestRisk) return;
 
-      try {
-        const payload: RiskAssessmentRequestDto = {
-          walletAddress: (address ??
-            "0x0000000000000000000000000000000000000000") as `0x${string}`,
-          routeCategory,
-          selectedLegs,
-          stakeRaw: parsedStake.toString(),
-        };
+    setRiskLoading(true);
+    setRiskError(null);
 
-        const response = await fetch("/api/risk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
+    try {
+      const payload: RiskAssessmentRequestDto = {
+        walletAddress: (address ??
+          "0x0000000000000000000000000000000000000000") as `0x${string}`,
+        routeCategory,
+        selectedLegs,
+        stakeRaw: parsedStake.toString(),
+      };
 
-        const body = (await response.json()) as
-          | RiskAssessmentResponseDto
-          | { error?: string };
+      const response = await fetch("/api/risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        if (!response.ok) {
-          throw new Error(
-            (body as { error?: string }).error ?? "Risk scoring failed."
-          );
-        }
+      const body = (await response.json()) as
+        | RiskAssessmentResponseDto
+        | { error?: string };
 
-        if ("error" in body && typeof body.error === "string") {
-          throw new Error(body.error);
-        }
-
-        setRisk(body as RiskAssessmentResponseDto);
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        setRisk(null);
-        setRiskError(
-          error instanceof Error ? error.message : "Risk scoring failed."
+      if (!response.ok) {
+        throw new Error(
+          (body as { error?: string }).error ?? "Risk scoring failed."
         );
-      } finally {
-        if (!controller.signal.aborted) {
-          setRiskLoading(false);
-        }
       }
-    }, 450);
 
-    return () => {
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [
-    address,
-    canRequestRisk,
-    parsedStake,
-    routeCategory,
-    selectedLegs,
-    setRisk,
-  ]);
+      setRisk(body as RiskAssessmentResponseDto);
+    } catch (error) {
+      setRisk(null);
+      setRiskError(
+        error instanceof Error ? error.message : "Risk scoring failed."
+      );
+    } finally {
+      setRiskLoading(false);
+    }
+  }, [address, canRequestRisk, parsedStake, routeCategory, selectedLegs, setRisk]);
 
   const handleSubmit = useCallback(async () => {
     if (
@@ -471,7 +451,7 @@ export function CartDrawer() {
       <div className="border-b border-[color:var(--border-subtle)] px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="eyebrow">Betslip</p>
+            <p className="eyebrow">Position Builder</p>
             <p className="mt-1 font-[family-name:var(--font-display)] text-lg font-bold text-[color:var(--text-primary)]">
               {selectedLegs.length === 0
                 ? "Add outcomes"
@@ -639,67 +619,77 @@ export function CartDrawer() {
           </div>
         )}
 
-        <div className="border border-[color:var(--border-subtle)] p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
-                AI risk assessment
+        {/* 0G Risk Engine — manual trigger */}
+        {!hasRisk && !riskLoading && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+              0G Risk Engine
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[color:var(--text-secondary)]">
+              {canRequestRisk
+                ? "Position is ready to score. Run 0G onchain AI to continue."
+                : "Add at least one leg and a valid stake to enable scoring."}
+            </p>
+            {riskError && (
+              <p className="mt-2 text-xs leading-5 text-[color:var(--accent-red)]">
+                {riskError}
               </p>
-              <p className="mt-1 text-xs leading-5 text-[color:var(--text-secondary)]">
-                {riskLoading
-                  ? "Scoring with 0G compute..."
-                  : risk
-                  ? `${risk.riskTier} tier · ${
-                      risk.source === "0g_compute"
-                        ? "0G compute"
-                        : "fallback model"
-                    }`
-                  : "Enter a valid stake to score this position."}
+            )}
+          </div>
+        )}
+
+        {riskLoading && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <div className="flex items-center gap-3">
+              <span className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-[color:var(--border-default)] border-t-[color:var(--text-primary)]" />
+              <p className="font-mono text-[11px] text-[color:var(--text-secondary)]">
+                0G calculating risk with onchain AI...
               </p>
             </div>
-            {risk && (
+          </div>
+        )}
+
+        {hasRisk && risk && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+                  0G Risk Engine
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[color:var(--text-secondary)]">
+                  {risk.riskTier} tier ·{" "}
+                  {risk.source === "0g_compute" ? "0G compute" : "fallback model"}
+                </p>
+              </div>
               <span className="font-mono text-[11px] uppercase tracking-wider text-[color:var(--text-primary)]">
                 {risk.riskTier}
               </span>
-            )}
-          </div>
-
-          {risk && (
-            <>
-              <div className="mt-3 flex items-center justify-between">
-                <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                  Settlement delay
-                </span>
-                <span className="font-mono text-[10px] text-[color:var(--text-primary)]">
-                  {risk.riskTier === "LOW"
-                    ? "~30s"
-                    : risk.riskTier === "MEDIUM"
-                    ? "~1m"
-                    : "~2m"}
-                </span>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                  Audit receipt
-                </span>
-                <span className="font-mono text-[10px] text-[color:var(--text-primary)]">
-                  {risk.audit.provider === "0g-storage"
-                    ? "0G stored"
-                    : "Local hash"}
-                </span>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
-                {risk.explanation.headline}
-              </p>
-            </>
-          )}
-
-          {riskError && (
-            <p className="mt-3 text-xs leading-5 text-[color:var(--accent-red)]">
-              {riskError}
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                Settlement delay
+              </span>
+              <span className="font-mono text-[10px] text-[color:var(--text-primary)]">
+                {risk.riskTier === "LOW"
+                  ? "~30s"
+                  : risk.riskTier === "MEDIUM"
+                  ? "~1m"
+                  : "~2m"}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                Audit receipt
+              </span>
+              <span className="font-mono text-[10px] text-[color:var(--text-primary)]">
+                {risk.audit.provider === "0g-storage" ? "0G stored" : "Local hash"}
+              </span>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[color:var(--text-secondary)]">
+              {risk.explanation.headline}
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
         {worldIdRequired && (
           <div className="border border-[color:var(--border-subtle)] p-3">
@@ -862,7 +852,24 @@ export function CartDrawer() {
           </div>
         )}
 
-        {requiresWorldIdStep ? (
+        {!hasRisk && !riskLoading ? (
+          <button
+            type="button"
+            onClick={handleAssessRisk}
+            disabled={!canRequestRisk || !isConnected}
+            className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] transition-colors hover:border-[color:var(--border-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Score with 0G AI
+          </button>
+        ) : riskLoading ? (
+          <button
+            type="button"
+            disabled
+            className="w-full border border-[color:var(--border-default)] py-3 text-sm font-medium text-[color:var(--text-primary)] opacity-40"
+          >
+            Scoring...
+          </button>
+        ) : requiresWorldIdStep ? (
           address ? (
             <WorldIdVerifyButton
               walletAddress={address}
@@ -910,7 +917,11 @@ export function CartDrawer() {
           </button>
         )}
         <p className="mt-2 text-center font-mono text-[10px] text-[color:var(--text-tertiary)]">
-          {requiresWorldIdStep
+          {!hasRisk && !riskLoading
+            ? "Add legs and a stake, then score with 0G onchain AI."
+            : riskLoading
+            ? "Running verifiable inference on the 0G compute network..."
+            : requiresWorldIdStep
             ? "World ID verification is required before approval and submission."
             : liabilityBlockedReason
             ? "This vault has no remaining liability headroom for a new position."

@@ -9,7 +9,7 @@ library VaultConfig {
     uint256 internal constant TESTNET_MIN_ACTIVATION = 20e6;
     uint256 internal constant TESTNET_MAX_PAYOUT = 8e6;
     uint256 internal constant TESTNET_MAX_STAKE = 2e6;
-    uint256 internal constant TESTNET_WORLD_ID_GATE = 1e6;
+    uint256 internal constant TESTNET_WORLD_ID_GATE = 3e6;
     uint256 internal constant MAINNET_MAX_TVL = 100_000e6;
     uint256 internal constant MAINNET_MIN_ACTIVATION = 20_000e6;
     uint256 internal constant MAINNET_MAX_PAYOUT = 1_000e6;
@@ -77,9 +77,6 @@ library VaultConfig {
             revert InvalidConfig();
         }
 
-        if (config.worldIdGate > config.maxStake) {
-            revert InvalidConfig();
-        }
     }
 
     function maxLiability(Config memory config, uint256 totalAssets) internal pure returns (uint256) {

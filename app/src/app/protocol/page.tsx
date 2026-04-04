@@ -109,7 +109,7 @@ export default function ProtocolPage() {
                 "Canonical position state lives onchain — no offchain database required.",
                 "Audit receipts and risk payloads are pinned to 0G Storage.",
                 "World ID prevents Sybil attacks above the stake gate.",
-                "Draft betslip state lives only in the browser until submission.",
+                "Draft position state lives only in the browser until submission.",
                 "Reserve ratio and liability cap are enforced by smart contract, not application logic.",
                 "Settlement delay windows are encoded in protocol config, not business rules.",
               ].map((item, i) => (

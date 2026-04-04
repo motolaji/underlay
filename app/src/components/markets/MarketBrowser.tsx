@@ -90,7 +90,7 @@ export function MarketBrowser() {
           </div>
         </div>
         <p className="mt-1.5 text-sm text-[color:var(--text-secondary)]">
-          Add legs to the betslip. Combined odds update as you build.
+          Add legs to the position builder. Combined odds update as you build.
         </p>
       </div>
 
