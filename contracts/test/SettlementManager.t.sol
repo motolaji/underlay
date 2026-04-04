@@ -23,7 +23,7 @@ contract SettlementManagerTest is Stage2Fixtures {
         ) = settlement.getSettlementState(positionId);
 
         assertEq(uint8(phase), uint8(SettlementManager.SettlementPhase.DELAY_ACTIVE));
-        assertEq(delaySeconds, 1 hours);
+        assertEq(delaySeconds, 60); // MEDIUM = 60s demo delay
         assertGt(unlockTimestamp, block.timestamp);
         assertFalse(challenged);
         assertEq(settledAt, 0);
@@ -38,7 +38,7 @@ contract SettlementManagerTest is Stage2Fixtures {
         settlement.resolveLeg(positionId, 1, true);
         vm.stopPrank();
 
-        vm.warp(block.timestamp + 1 hours + 1);
+        vm.warp(block.timestamp + 61); // past MEDIUM delay (60s)
         settlement.executeSettlement(positionId);
 
         PositionBook.Position memory position = book.getPosition(positionId);
@@ -59,7 +59,7 @@ contract SettlementManagerTest is Stage2Fixtures {
 
         settlement.challengeSettlement(positionId);
 
-        vm.warp(block.timestamp + 2 hours + 1);
+        vm.warp(block.timestamp + 61); // past challenge extension (60s)
         vm.expectRevert();
         settlement.executeSettlement(positionId);
 

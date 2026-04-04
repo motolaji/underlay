@@ -47,7 +47,7 @@ export const protocolMetrics: ProtocolMetric[] = [
   },
   {
     label: "High-risk delay",
-    value: `${Math.floor(DELAY_CONFIG.highDelaySeconds / 3600)}h`,
+    value: `${DELAY_CONFIG.highDelaySeconds}s`,
     source: "configured",
   },
 ];

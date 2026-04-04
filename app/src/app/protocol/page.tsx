@@ -21,8 +21,8 @@ const configRows = [
     "Leg rules",
     `${POSITION_RULES.minLegsPerPosition}–${POSITION_RULES.maxLegsPerPosition} outcomes per position`,
   ],
-  ["Low-risk delay", `${Math.floor(DELAY_CONFIG.lowDelaySeconds / 60)} min`],
-  ["High-risk delay", `${Math.floor(DELAY_CONFIG.highDelaySeconds / 3600)}h`],
+  ["Low-risk delay", `${DELAY_CONFIG.lowDelaySeconds}s`],
+  ["High-risk delay", `${DELAY_CONFIG.highDelaySeconds}s`],
 ] as const;
 
 export default function ProtocolPage() {

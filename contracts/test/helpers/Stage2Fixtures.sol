@@ -60,7 +60,16 @@ contract Stage2Fixtures is Test {
         book = new PositionBook(IERC20(address(usdc)), IVaultManager(address(vault)), cfg, 1, 10, owner);
         risk = new RiskEngine(IERC20(address(usdc)), IWorldID(address(worldId)), "app_test", "place-position", cfg, owner);
 
-        settlement = new SettlementManager(IPositionBook(address(book)), settlementOperator, owner, owner);
+        settlement = new SettlementManager(
+            IPositionBook(address(book)),
+            settlementOperator,
+            owner,
+            owner,
+            30,   // delayLow: 30s (demo)
+            60,   // delayMedium: 60s (demo)
+            120,  // delayHigh: 120s (demo)
+            60    // challengeExtension: 60s (demo)
+        );
 
         vault.setPositionBook(address(book));
         vault.setSettlementManager(address(settlement));

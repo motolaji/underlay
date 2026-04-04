@@ -343,7 +343,7 @@ Return ONLY valid JSON with this exact structure:
   "correlation_score": number,
   "flags": string[],
   "effective_legs": number,
-  "settlement_delay": "15 min" | "1 hour" | "24 hours",
+  "settlement_delay": "~30s" | "~1m" | "~2m",
   "confidence": number,
   "reasoning": string
 }`;

@@ -1,3 +1,5 @@
-name: underlay-settlement
-description: Settlement workflow scaffold for Underlay.
-entrypoint: workflows/settlement/main.ts
+specVersion: v1
+workflows:
+  - name: underlay-settlement
+    settingsFile: workflows/settlement/config.json
+    workflowFile: workflows/settlement/main.ts

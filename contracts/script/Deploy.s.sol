@@ -76,7 +76,11 @@ contract Deploy is Script {
             IPositionBook(address(positionBook)),
             creForwarder,
             challengeCouncil,
-            deployer
+            deployer,
+            uint32(vm.envOr("SETTLEMENT_DELAY_LOW",    uint256(30))),
+            uint32(vm.envOr("SETTLEMENT_DELAY_MEDIUM", uint256(60))),
+            uint32(vm.envOr("SETTLEMENT_DELAY_HIGH",   uint256(120))),
+            uint32(vm.envOr("SETTLEMENT_CHALLENGE_EXT", uint256(60)))
         );
 
         PositionRouter positionRouter = new PositionRouter(deployer);

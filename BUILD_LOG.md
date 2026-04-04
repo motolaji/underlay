@@ -205,12 +205,13 @@
 
 ### 2026-04-03 - Faucet vault activation
 
-- LP wallet approved faucet USDC to the final live vault
-- LP wallet deposited `20e6` (`20 USDC`) into `VaultManager`
+- Seeded the final live faucet-mode vault at `0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802`
+- Approved and deposited `20e6` (`20 USDC`) into `VaultManager`
 - Verified live vault activation on Base Sepolia:
   - `active() = true`
   - `totalAssets() = 20000000`
-- The faucet-friendly testnet vault is now active and able to accept positions
+  - `withdrawalDelay() = 120`
+- The faucet-friendly testnet vault is active and able to accept positions
 
 ### 2026-04-03 - Live LP frontend integration
 
@@ -225,6 +226,20 @@
   - withdrawal completion flow via `redeem(...)`
   - live `maxRedeem` / `maxWithdraw` read surfaces and pending-withdrawal status
   - optimistic UI updates after deposit/request/redeem receipts for demo responsiveness
+
+### 2026-04-04 - Quote and positions polish
+
+- Improved cart quote display with per-leg odds, combined odds, stake, payout, and liability headroom
+- Added clearer live vault-capacity messaging before bettor submission
+- Added gas estimation with buffer for bettor submit and LP write actions to avoid oversized wallet gas defaults
+- Added positions summary cards and improved wallet-scoped positions visibility
+
+### 2026-04-04 - Bettor approval hardening
+
+- Fixed the cart approval state so approval amount must match the current stake before auto-submit can trigger
+- Added explicit approval status display showing required vs current allowance
+- Prevented stale lower approvals from auto-submitting higher-stake positions
+- Added buffered gas estimation for ERC-20 approvals in the bettor flow
 
 ### 2026-04-04 - Frontend visual redesign and theme system
 
@@ -256,6 +271,32 @@
 - Added `scripts/deposit-og-credits.mjs` for one-off ledger funding (requires 3 0G minimum)
 - Deposited compute credits — confirmed `qwen/qwen-2.5-7b-instruct` live on Galileo
 - Betslip confirmed showing `source: "0g_compute"` and `0G stored` audit receipt — fully live
+
+### 2026-04-04 - Chainlink CRE settlement workflow
+
+- Implemented full `cre-workflow/workflows/settlement/main.ts` using CRE SDK v1.5
+  - `EVMClient(BigInt("10344971235874465080"))` for Base Sepolia
+  - Reads open positions from `PositionBook.getOpenPositions()` and `getPositionLegs()`
+  - Checks resolution via Polymarket Gamma API (`/markets?conditionId={bytes32}`) in node mode
+  - Demo override support via `demoOverrides` in config.json
+  - Chainlink price feed cross-reference for ETH/BTC markets (Connect the World prize)
+  - Batch writes via `SettlementManager.resolveLegs()` using CRE consensus report
+- Fixed CRE SDK v1.5 API patterns (runner factory, HTTP response body, consensus aggregation)
+- Made `SettlementManager` delays configurable storage vars (not constants):
+  - Added `delayLow`, `delayMedium`, `delayHigh`, `challengeExtension` storage vars
+  - Added `setDelayConfig()` and `setChallengeExtension()` owner setters
+  - Redeployed with demo values: LOW=30s, MEDIUM=60s, HIGH=120s, CHALLENGE=60s
+- Updated `contracts/script/Deploy.s.sol` to pass delay values via env vars (defaults to demo values)
+- Updated `contracts/test/helpers/Stage2Fixtures.sol` and `contracts/test/SettlementManager.t.sol` for new constructor
+- Updated frontend delay labels: cartdrawer shows `~30s` / `~1m` / `~2m`, protocol page shows `30s` / `120s`
+- Updated `app/src/lib/constants.ts` `DELAY_CONFIG` to match deployed demo values
+- `cre-workflow/`: `npm run build` passes (TypeScript clean)
+- Redeployed Base Sepolia addresses (post-configurable-delays redeploy):
+  - `VaultManager`: `0x8b15Df543C616b55C52C7C77016D62a5c38e1B3f`
+  - `PositionBook`: `0x503141BFF590A16e2a681b3F3c2bB77D538F85e9`
+  - `PositionRouter`: `0x91fB5bf5A97d0bd334a6eF6dbf51951323De1930`
+  - `RiskEngine`: `0x80b4Ad1CF2f63420E3c9C656D3bA9CB9Ed1b3172`
+  - `SettlementManager`: `0xDc4095E361E11Bf92ce2AB59273f587803022F8d`
 
 ### 2026-04-04 - Bettor submit and positions integration
 
@@ -294,6 +335,11 @@
 - `app`: completed LP page interaction flow build - passed
 - `app`: bettor submit and positions integration build - passed
 - `contracts`: demo withdrawal-delay redeploy - passed
+- `app`: quote and positions polish build - passed
+- `app`: bettor approval hardening build - passed
+- `cre-workflow`: settlement workflow TypeScript build - passed (v1.5 SDK patterns)
+- `contracts`: configurable-delays SettlementManager redeploy - passed
+- `app`: delay label updates (cartdrawer, protocol page, constants) - passed
 
 ## In Progress
 
@@ -303,11 +349,11 @@
 
 ### Round 3 - Live integrations
 
-1. Seed the final live vault `0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802` with at least `20e6` faucet USDC
-2. Restart the app dev server so it picks up the final live contract addresses
-3. Test LP deposit and 2-minute withdrawal flow end-to-end
-4. Test live bettor submission flow from the app into `RiskEngine.sol`
-5. Expand position detail rendering with per-leg reads and settlement state
+1. Restart the app dev server so it picks up the final live contract addresses
+2. Test LP deposit and 2-minute withdrawal flow end-to-end
+3. Test live bettor submission flow from the app into `RiskEngine.sol`
+4. Expand position detail rendering with per-leg reads and settlement state
+5. Add 0G audit receipt retrieval UI
 
 ### Round 4 - Deployment
 
@@ -373,9 +419,10 @@ WORLD ID
   Router (Base):             0x42FF98C4E85212a5D31358ACbFe76a621b50fC02
 
 CHAINLINK
-  CRE Workflow ID:           [pending]
-  ETH/USD Feed (Base):       [pending]
-  BTC/USD Feed (Base):       [pending]
+  CRE Workflow ID:           [pending — assigned by DON after registration]
+  ETH/USD Feed (Base Sep):   0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1
+  BTC/USD Feed (Base Sep):   0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298
+  Base Sepolia chain sel:    10344971235874465080
 
 0G
   Chain RPC (Galileo):       https://evmrpc-testnet.0g.ai
@@ -399,12 +446,12 @@ POLYMARKET
 ## Contract Addresses
 
 ```text
-Base Sepolia Testnet:
-  VaultManager:              0xB0AB723D2e1A5b35d68B2eF8C24e210DF2D13802
-  PositionBook:              0x10809a9ed37968FEf36bf73Ce9Aa9A96166D8dc4
-  PositionRouter:            0xF4101C926C8Fa5Ab8275a4d6ea81c44d04876a54
-  RiskEngine:                0x163e0D8f3Ae08ad43504bE7F6e153C21f55514Ae
-  SettlementManager:         0x4A318A82eA88a1Ffba82cE342a9D8E64d48C1826
+Base Sepolia Testnet (post-configurable-delays redeploy):
+  VaultManager:              0x8b15Df543C616b55C52C7C77016D62a5c38e1B3f
+  PositionBook:              0x503141BFF590A16e2a681b3F3c2bB77D538F85e9
+  PositionRouter:            0x91fB5bf5A97d0bd334a6eF6dbf51951323De1930
+  RiskEngine:                0x80b4Ad1CF2f63420E3c9C656D3bA9CB9Ed1b3172
+  SettlementManager:         0xDc4095E361E11Bf92ce2AB59273f587803022F8d
 
 0G Chain Testnet:
   VaultManager:              [not deployed]

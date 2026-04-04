@@ -2,17 +2,22 @@
   "name": "@underlay/cre-workflow",
   "version": "0.1.0",
   "private": true,
-  "description": "Chainlink CRE workflow scaffold for Underlay settlement.",
+  "description": "Chainlink CRE settlement workflow for Underlay.",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
-    "simulate": "cre workflow simulate",
+    "simulate": "cre workflow simulate underlay-settlement --target staging",
     "check": "npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  },
   "devDependencies": {
+    "@chainlink/cre-sdk": "^1.5.0",
     "@types/node": "^20.19.24",
     "typescript": "^5.9.3"
   }

@@ -17,11 +17,13 @@ contract SettlementManager is Ownable, ReentrancyGuard {
     error SettlementManagerAlreadyChallenged();
     error SettlementManagerChallengeWindowClosed();
     error SettlementManagerChallengeNotActive();
+    error SettlementManagerInvalidDelayConfig();
 
-    uint256 public constant DELAY_LOW = 15 minutes;
-    uint256 public constant DELAY_MEDIUM = 1 hours;
-    uint256 public constant DELAY_HIGH = 24 hours;
-    uint256 public constant CHALLENGE_EXTENSION = 2 hours;
+    // Configurable delays — owner can adjust without redeploy
+    uint32 public delayLow;
+    uint32 public delayMedium;
+    uint32 public delayHigh;
+    uint32 public challengeExtension;
 
     enum SettlementPhase {
         NONE,
@@ -43,6 +45,7 @@ contract SettlementManager is Ownable, ReentrancyGuard {
         uint32 lowDelaySeconds;
         uint32 mediumDelaySeconds;
         uint32 highDelaySeconds;
+        uint32 challengeExtensionSeconds;
     }
 
     IPositionBook public immutable positionBook;
@@ -80,6 +83,8 @@ contract SettlementManager is Ownable, ReentrancyGuard {
     );
     event CreForwarderUpdated(address indexed creForwarder);
     event ChallengeCouncilUpdated(address indexed challengeCouncil);
+    event DelayConfigUpdated(uint32 low, uint32 medium, uint32 high);
+    event ChallengeExtensionUpdated(uint32 extension);
 
     modifier onlyCRE() {
         if (msg.sender != creForwarder && msg.sender != address(this)) {
@@ -99,7 +104,11 @@ contract SettlementManager is Ownable, ReentrancyGuard {
         IPositionBook _positionBook,
         address _creForwarder,
         address _challengeCouncil,
-        address _owner
+        address _owner,
+        uint32 _delayLow,
+        uint32 _delayMedium,
+        uint32 _delayHigh,
+        uint32 _challengeExtension
     ) Ownable(_owner) {
         if (
             address(_positionBook) == address(0) ||
@@ -110,9 +119,17 @@ contract SettlementManager is Ownable, ReentrancyGuard {
             revert SettlementManagerZeroAddress();
         }
 
+        if (_delayLow == 0 || _delayMedium < _delayLow || _delayHigh < _delayMedium) {
+            revert SettlementManagerInvalidDelayConfig();
+        }
+
         positionBook = _positionBook;
         creForwarder = _creForwarder;
         challengeCouncil = _challengeCouncil;
+        delayLow = _delayLow;
+        delayMedium = _delayMedium;
+        delayHigh = _delayHigh;
+        challengeExtension = _challengeExtension;
     }
 
     function setCREForwarder(address nextCreForwarder) external onlyOwner {
@@ -131,6 +148,22 @@ contract SettlementManager is Ownable, ReentrancyGuard {
 
         challengeCouncil = nextChallengeCouncil;
         emit ChallengeCouncilUpdated(nextChallengeCouncil);
+    }
+
+    function setDelayConfig(uint32 low, uint32 medium, uint32 high) external onlyOwner {
+        if (low == 0 || medium < low || high < medium) {
+            revert SettlementManagerInvalidDelayConfig();
+        }
+
+        delayLow = low;
+        delayMedium = medium;
+        delayHigh = high;
+        emit DelayConfigUpdated(low, medium, high);
+    }
+
+    function setChallengeExtension(uint32 extension) external onlyOwner {
+        challengeExtension = extension;
+        emit ChallengeExtensionUpdated(extension);
     }
 
     function resolveLeg(bytes32 positionId, uint8 legIndex, bool won) external onlyCRE {
@@ -200,7 +233,7 @@ contract SettlementManager is Ownable, ReentrancyGuard {
         }
 
         settlement.challenged = true;
-        settlement.settleAfter = uint64(block.timestamp + CHALLENGE_EXTENSION);
+        settlement.settleAfter = uint64(block.timestamp + challengeExtension);
 
         emit SettlementChallenged(positionId, msg.sender, block.timestamp);
     }
@@ -261,11 +294,12 @@ contract SettlementManager is Ownable, ReentrancyGuard {
         }
     }
 
-    function getDelayConfig() external pure returns (DelayConfig memory) {
+    function getDelayConfig() external view returns (DelayConfig memory) {
         return DelayConfig({
-            lowDelaySeconds: uint32(DELAY_LOW),
-            mediumDelaySeconds: uint32(DELAY_MEDIUM),
-            highDelaySeconds: uint32(DELAY_HIGH)
+            lowDelaySeconds: delayLow,
+            mediumDelaySeconds: delayMedium,
+            highDelaySeconds: delayHigh,
+            challengeExtensionSeconds: challengeExtension
         });
     }
 
@@ -309,15 +343,15 @@ contract SettlementManager is Ownable, ReentrancyGuard {
         emit SettlementInitiated(positionId, settleAfter, riskTier, block.timestamp);
     }
 
-    function _getDelay(uint8 riskTier) internal pure returns (uint256) {
+    function _getDelay(uint8 riskTier) internal view returns (uint256) {
         if (riskTier == uint8(IPositionBook.RiskTier.LOW)) {
-            return DELAY_LOW;
+            return delayLow;
         }
 
         if (riskTier == uint8(IPositionBook.RiskTier.MEDIUM)) {
-            return DELAY_MEDIUM;
+            return delayMedium;
         }
 
-        return DELAY_HIGH;
+        return delayHigh;
     }
 }

@@ -10,6 +10,7 @@ import {
 import { erc20Abi, formatUnits } from "viem";
 import {
   useAccount,
+  usePublicClient,
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
@@ -29,6 +30,7 @@ function liabilityColor(pct: number) {
 
 export default function AppLpPage() {
   const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
   const [depositInput, setDepositInput] = useState("");
   const [withdrawInput, setWithdrawInput] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -254,17 +256,29 @@ export default function AppLpPage() {
     try {
       setActionError(null);
       setActionLabel("approve");
+      const gas =
+        publicClient && address
+          ? await publicClient.estimateContractGas({
+              address: usdcAddress,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [vaultAddress, depositRaw],
+              account: address,
+            })
+          : undefined;
       const hash = await writeContractAsync({
         address: usdcAddress,
         abi: erc20Abi,
         functionName: "approve",
         args: [vaultAddress, depositRaw],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setActionHash(hash);
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Approve failed."
       );
+      setActionLabel(null);
     }
   }
 
@@ -276,23 +290,35 @@ export default function AppLpPage() {
     try {
       setActionError(null);
       setActionLabel("deposit");
+      const gas = publicClient
+        ? await publicClient.estimateContractGas({
+            address: vaultAddress,
+            abi: vaultManagerAbi,
+            functionName: "deposit",
+            args: [depositRaw, address],
+            account: address,
+          })
+        : undefined;
       const hash = await writeContractAsync({
         address: vaultAddress,
         abi: vaultManagerAbi,
         functionName: "deposit",
         args: [depositRaw, address],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setActionHash(hash);
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Deposit failed."
       );
+      setActionLabel(null);
     }
   }, [
     address,
     canDeposit,
     needsApproval,
     depositRaw,
+    publicClient,
     vaultAddress,
     writeContractAsync,
   ]);
@@ -305,17 +331,29 @@ export default function AppLpPage() {
     try {
       setActionError(null);
       setActionLabel("request");
+      const gas =
+        publicClient && address
+          ? await publicClient.estimateContractGas({
+              address: vaultAddress,
+              abi: vaultManagerAbi,
+              functionName: "requestWithdrawal",
+              args: [withdrawSharesRaw],
+              account: address,
+            })
+          : undefined;
       const hash = await writeContractAsync({
         address: vaultAddress,
         abi: vaultManagerAbi,
         functionName: "requestWithdrawal",
         args: [withdrawSharesRaw],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setActionHash(hash);
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Withdrawal request failed."
       );
+      setActionLabel(null);
     }
   }
 
@@ -327,15 +365,27 @@ export default function AppLpPage() {
     try {
       setActionError(null);
       setActionLabel("redeem");
+      const gas =
+        publicClient && address
+          ? await publicClient.estimateContractGas({
+              address: vaultAddress,
+              abi: vaultManagerAbi,
+              functionName: "redeem",
+              args: [maxRedeemShares, address, address],
+              account: address,
+            })
+          : undefined;
       const hash = await writeContractAsync({
         address: vaultAddress,
         abi: vaultManagerAbi,
         functionName: "redeem",
         args: [maxRedeemShares, address, address],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setActionHash(hash);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Redeem failed.");
+      setActionLabel(null);
     }
   }
 

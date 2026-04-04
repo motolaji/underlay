@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { erc20Abi } from "viem";
 import {
   useAccount,
+  usePublicClient,
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
@@ -17,6 +18,7 @@ import { riskEngineAbi } from "@/lib/contracts/abi/riskEngine";
 import { contractAddresses } from "@/lib/contracts/addresses";
 import {
   formatCountLabel,
+  formatPercent,
   formatUsdc,
   parseUsdcInput,
   shortenHash,
@@ -36,6 +38,7 @@ const stakePresets = ["1", "2"];
 
 export function CartDrawer() {
   const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
   const {
     selectedLegs,
     stakeInput,
@@ -63,6 +66,8 @@ export function CartDrawer() {
   const [txMode, setTxMode] = useState<"approve" | "submit" | null>(null);
   const [optimisticAllowance, setOptimisticAllowance] = useState<bigint>(0n);
   const [autoSubmitAfterApproval, setAutoSubmitAfterApproval] = useState(false);
+  const [pendingApprovalAmountRaw, setPendingApprovalAmountRaw] =
+    useState<bigint>(0n);
 
   const usdcAddress = contractAddresses.baseSepolia.usdc;
   const riskEngineAddress = contractAddresses.baseSepolia.riskEngine;
@@ -149,6 +154,8 @@ export function CartDrawer() {
       ? optimisticAllowance
       : currentAllowance;
   const needsApproval = parsedStake > 0n && effectiveAllowance < parsedStake;
+  const approvalMatchesCurrentStake =
+    pendingApprovalAmountRaw === 0n || pendingApprovalAmountRaw === parsedStake;
   const requiresWorldIdStep = worldIdRequired && !worldIdVerified;
   const liabilityBlockedReason = useMemo(() => {
     if (!quote || parsedStake === 0n) {
@@ -198,7 +205,8 @@ export function CartDrawer() {
   useEffect(() => {
     setOptimisticAllowance(0n);
     setAutoSubmitAfterApproval(false);
-  }, [address, parsedStake]);
+    setPendingApprovalAmountRaw(0n);
+  }, [address, parsedStake, selectedLegs.length]);
 
   useEffect(() => {
     if (!canRequestRisk) {
@@ -293,6 +301,29 @@ export function CartDrawer() {
         worldIdProof,
       });
 
+      const gas = publicClient
+        ? await publicClient.estimateContractGas({
+            address: riskEngineAddress,
+            abi: riskEngineAbi,
+            functionName: "submitPosition",
+            args: [
+              payload.marketIds,
+              payload.outcomes,
+              payload.lockedOdds,
+              payload.resolutionTimes,
+              payload.stake,
+              payload.combinedOdds,
+              payload.riskTier,
+              payload.riskAuditHash,
+              payload.aiStakeLimit,
+              payload.root,
+              payload.nullifierHash,
+              payload.proof,
+            ],
+            account: address,
+          })
+        : undefined;
+
       setTxMode("submit");
       const hash = await writeContractAsync({
         address: riskEngineAddress,
@@ -312,6 +343,7 @@ export function CartDrawer() {
           payload.nullifierHash,
           payload.proof,
         ],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setTxHash(hash);
     } catch (error) {
@@ -332,6 +364,7 @@ export function CartDrawer() {
     setSubmissionState,
     worldIdProof,
     liabilityBlockedReason,
+    publicClient,
     writeContractAsync,
   ]);
 
@@ -341,7 +374,7 @@ export function CartDrawer() {
     }
 
     if (txMode === "approve") {
-      setOptimisticAllowance(parsedStake);
+      setOptimisticAllowance(pendingApprovalAmountRaw || parsedStake);
       setSubmissionState("idle");
       setTxHash(undefined);
       setTxMode(null);
@@ -354,6 +387,7 @@ export function CartDrawer() {
     setTxMode(null);
   }, [
     allowanceQuery,
+    pendingApprovalAmountRaw,
     parsedStake,
     receiptQuery.isSuccess,
     setSubmissionState,
@@ -366,13 +400,26 @@ export function CartDrawer() {
       return;
     }
 
-    if (!canSubmit) {
+    if (
+      !canSubmit ||
+      !approvalMatchesCurrentStake ||
+      effectiveAllowance < parsedStake
+    ) {
       return;
     }
 
     setAutoSubmitAfterApproval(false);
     void handleSubmit();
-  }, [autoSubmitAfterApproval, canSubmit, handleSubmit, isPending, txMode]);
+  }, [
+    approvalMatchesCurrentStake,
+    autoSubmitAfterApproval,
+    canSubmit,
+    effectiveAllowance,
+    handleSubmit,
+    isPending,
+    parsedStake,
+    txMode,
+  ]);
 
   const maxAllowedStakeRaw = useMemo(() => {
     if (!risk) {
@@ -390,14 +437,26 @@ export function CartDrawer() {
     try {
       setSubmissionState("approving", undefined, null);
       setTxMode("approve");
+      setPendingApprovalAmountRaw(parsedStake);
+      const gas = publicClient
+        ? await publicClient.estimateContractGas({
+            address: usdcAddress,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [riskEngineAddress, parsedStake],
+            account: address,
+          })
+        : undefined;
       const hash = await writeContractAsync({
         address: usdcAddress,
         abi: erc20Abi,
         functionName: "approve",
         args: [riskEngineAddress, parsedStake],
+        gas: gas ? (gas * 12n) / 10n : undefined,
       });
       setTxHash(hash);
     } catch (error) {
+      setPendingApprovalAmountRaw(0n);
       setSubmissionState(
         "error",
         undefined,
@@ -446,13 +505,40 @@ export function CartDrawer() {
           <>
             {quote && (
               <div className="border border-[color:var(--border-subtle)] p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
-                    Combined odds
-                  </span>
-                  <span className="font-[family-name:var(--font-display)] text-xl font-bold text-[color:var(--text-primary)]">
-                    {quote.combinedOdds.toFixed(2)}x
-                  </span>
+                <div className="grid grid-cols-2 gap-3 border-b border-[color:var(--border-subtle)] pb-3">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+                      Combined odds
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-display)] text-xl font-bold text-[color:var(--text-primary)]">
+                      {quote.combinedOdds.toFixed(2)}x
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+                      Stake
+                    </p>
+                    <p className="mt-1 font-mono text-sm text-[color:var(--text-primary)]">
+                      {formatUsdc(parsedStake)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {selectedLegs.map((leg, index) => (
+                    <div
+                      key={`${leg.marketId}:${leg.outcomeId}:odds`}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <div className="min-w-0 pr-3 text-[color:var(--text-secondary)]">
+                        {leg.outcomeLabel} ·{" "}
+                        {formatPercent(leg.referenceProbability * 100)} implied
+                      </div>
+                      <div className="font-mono text-[color:var(--text-primary)]">
+                        {quote.legOdds[index]?.toFixed(2)}x
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -542,6 +628,14 @@ export function CartDrawer() {
                 Capped at {formatUsdc(TESTNET_VAULT_CONFIG.maxPayoutRaw)}
               </p>
             )}
+            {!quote.payoutCapped && (
+              <p className="mt-1.5 font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                Uncapped payout{" "}
+                {formatUsdc(
+                  BigInt(Math.round(quote.uncappedPayout * 1_000_000))
+                )}
+              </p>
+            )}
           </div>
         )}
 
@@ -578,10 +672,10 @@ export function CartDrawer() {
                 </span>
                 <span className="font-mono text-[10px] text-[color:var(--text-primary)]">
                   {risk.riskTier === "LOW"
-                    ? "15 min"
+                    ? "~30s"
                     : risk.riskTier === "MEDIUM"
-                    ? "1 hour"
-                    : "24 hours"}
+                    ? "~1m"
+                    : "~2m"}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between">
@@ -651,6 +745,26 @@ export function CartDrawer() {
           </div>
         )}
 
+        {!liabilityBlockedReason && quote && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+              Liability headroom
+            </p>
+            <div className="mt-2 flex items-center justify-between text-xs text-[color:var(--text-secondary)]">
+              <span>This quote uses</span>
+              <span className="font-mono text-[color:var(--text-primary)]">
+                {formatUsdc(quotePayoutRaw)}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-xs text-[color:var(--text-secondary)]">
+              <span>Available in vault</span>
+              <span className="font-mono text-[color:var(--text-primary)]">
+                {formatUsdc(availableLiabilityRaw)}
+              </span>
+            </div>
+          </div>
+        )}
+
         {liabilityBlockedReason && (
           <div className="border border-[color:rgba(220,38,38,0.2)] bg-[color:rgba(220,38,38,0.06)] p-3">
             <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--risk-high)]">
@@ -662,6 +776,33 @@ export function CartDrawer() {
             <p className="mt-2 font-mono text-[10px] text-[color:var(--text-tertiary)]">
               Available liability: {formatUsdc(availableLiabilityRaw)}
             </p>
+          </div>
+        )}
+
+        {parsedStake > 0n && !requiresWorldIdStep && (
+          <div className="border border-[color:var(--border-subtle)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
+              Approval status
+            </p>
+            <div className="mt-2 flex items-center justify-between text-xs text-[color:var(--text-secondary)]">
+              <span>Required</span>
+              <span className="font-mono text-[color:var(--text-primary)]">
+                {formatUsdc(parsedStake)}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-xs text-[color:var(--text-secondary)]">
+              <span>Current</span>
+              <span className="font-mono text-[color:var(--text-primary)]">
+                {formatUsdc(effectiveAllowance)}
+              </span>
+            </div>
+            {pendingApprovalAmountRaw > 0n &&
+              pendingApprovalAmountRaw !== parsedStake && (
+                <p className="mt-2 text-xs leading-5 text-[color:var(--badge-warning-text)]">
+                  Stake changed after approval started. Approve the new amount
+                  before submission.
+                </p>
+              )}
           </div>
         )}
 
@@ -775,6 +916,8 @@ export function CartDrawer() {
             ? "This vault has no remaining liability headroom for a new position."
             : autoSubmitAfterApproval
             ? "Approval confirmed. Submitting automatically..."
+            : !needsApproval && parsedStake > 0n
+            ? "Approval confirmed for the current stake."
             : "Submissions are sent directly to the live RiskEngine on Base Sepolia."}
         </p>
       </div>

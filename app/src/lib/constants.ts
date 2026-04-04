@@ -14,9 +14,9 @@ export const POSITION_RULES = {
 } as const;
 
 export const DELAY_CONFIG = {
-  lowDelaySeconds: 900,
-  mediumDelaySeconds: 3_600,
-  highDelaySeconds: 86_400,
+  lowDelaySeconds: 30,
+  mediumDelaySeconds: 60,
+  highDelaySeconds: 120,
 } as const;
 
 export const PROTOCOL_CAPABILITY_RAIL = [

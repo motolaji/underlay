@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 
 import { EmptyState } from "@/components/common/EmptyState";
@@ -64,6 +64,19 @@ export default function AppPositionsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const openCount = useMemo(
+    () => rows.filter((row) => STATUS_LABELS[row.status] === "Open").length,
+    [rows]
+  );
+  const wonCount = useMemo(
+    () => rows.filter((row) => STATUS_LABELS[row.status] === "Won").length,
+    [rows]
+  );
+  const totalStake = useMemo(
+    () => rows.reduce((sum, row) => sum + row.stake, 0n),
+    [rows]
+  );
 
   function toggleExpand(id: string) {
     setExpanded((prev) => {
@@ -199,6 +212,35 @@ export default function AppPositionsPage() {
           ? "Wallet connected — showing all submitted positions with leg detail."
           : "Connect a wallet to load your submitted positions."}
       </div>
+
+      {isConnected && rows.length > 0 && (
+        <div className="grid grid-cols-3 gap-px border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)]">
+          <div className="p-4">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+              Open positions
+            </div>
+            <div className="mt-1 font-[family-name:var(--font-display)] text-2xl text-[color:var(--text-primary)]">
+              {openCount}
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+              Total stake
+            </div>
+            <div className="mt-1 font-[family-name:var(--font-display)] text-2xl text-[color:var(--text-primary)]">
+              {formatUsdc(totalStake)}
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
+              Won positions
+            </div>
+            <div className="mt-1 font-[family-name:var(--font-display)] text-2xl text-[color:var(--text-primary)]">
+              {wonCount}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="border border-[color:var(--border-subtle)]">
         {/* Header */}
