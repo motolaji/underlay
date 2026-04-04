@@ -3,7 +3,7 @@
 ## Project Status
 
 - Started: ETHGlobal Cannes 2026
-- Current phase: Round 2 core contracts and settlement verified
+- Current phase: Round 2 core contracts, settlement, and routing verified
 - Last updated: 2026-04-03
 
 ## Completed
@@ -101,6 +101,13 @@
 - Added `contracts/test/SettlementManager.t.sol`
 - Updated Stage 2 fixtures to deploy and wire the real `SettlementManager`
 
+### 2026-04-03 - Position router implementation
+
+- Added `contracts/src/PositionRouter.sol`
+- Added routing test helpers in `contracts/test/helpers/MockVaultManagerRouter.sol`
+- Added `contracts/test/PositionRouter.t.sol`
+- Verified lowest-utilisation routing and vault eligibility behavior
+
 ## Verification
 
 - `app`: `npm run lint` - passed
@@ -109,7 +116,7 @@
 - `cre-workflow`: `npm run build` - passed
 - `app`: redesigned route map verified in production build output (`/`, `/app`, `/app/lp`, `/app/positions`, `/protocol`)
 - `contracts`: `forge build` - passed
-- `contracts`: `forge test -vv` - passed (13 tests)
+- `contracts`: `forge test -vv` - passed (17 tests)
 
 ## In Progress
 
@@ -122,8 +129,8 @@
 1. Implement `SettlementManager.sol`
 2. Add any missing read methods uncovered by app integration
 3. Connect the frontend workspace to live contract reads
-4. Implement `PositionRouter.sol`
-5. Begin `/api/markets` and `/api/risk` integration work
+4. Begin `/api/markets` and `/api/risk` integration work
+5. Wire contract addresses and env configuration for app integration
 
 ### Round 3 - Live integrations
 
