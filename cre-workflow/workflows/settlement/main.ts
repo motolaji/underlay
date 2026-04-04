@@ -103,7 +103,7 @@ type ResolvedLeg = {
 // Entry point
 // ---------------------------------------------------------------------------
 
-async function main() {
+export async function main() {
   const runner = await Runner.newRunner<Config>({ configSchema });
   await runner.run((config) => [
     handler(
@@ -394,4 +394,3 @@ function submitResolutions(
   );
 }
 
-main();

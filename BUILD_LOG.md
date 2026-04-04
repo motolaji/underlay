@@ -241,6 +241,15 @@
 - Prevented stale lower approvals from auto-submitting higher-stake positions
 - Added buffered gas estimation for ERC-20 approvals in the bettor flow
 
+### 2026-04-04 - World ID root-sync preflight
+
+- Added `POST /api/world-id/verify` to:
+  - verify legacy World ID proofs against the Developer Portal API
+  - preflight the proof against the Base Sepolia `WorldIDRouter`
+  - detect root-sync lag before onchain submission
+- Updated `WorldIdVerifyButton` to wait for Base Sepolia root readiness before marking the proof as chain-ready
+- Added polling and user-facing status messaging for delayed root sync on Base Sepolia
+
 ### 2026-04-04 - Frontend visual redesign and theme system
 
 - Replaced warm editorial paper UI with a Bloomberg Terminal / Vercel-inspired system
@@ -340,6 +349,7 @@
 - `cre-workflow`: settlement workflow TypeScript build - passed (v1.5 SDK patterns)
 - `contracts`: configurable-delays SettlementManager redeploy - passed
 - `app`: delay label updates (cartdrawer, protocol page, constants) - passed
+- `app`: World ID root-sync preflight build - passed
 
 ## In Progress
 
@@ -351,7 +361,7 @@
 
 1. Restart the app dev server so it picks up the final live contract addresses
 2. Test LP deposit and 2-minute withdrawal flow end-to-end
-3. Test live bettor submission flow from the app into `RiskEngine.sol`
+3. Re-test high-stake World ID bettor flow on the final live deployment
 4. Expand position detail rendering with per-leg reads and settlement state
 5. Add 0G audit receipt retrieval UI
 
@@ -400,9 +410,9 @@
 
 ### World ID request signing - PARTIAL
 
-- Issue: `WORLD_RP_SIGNING_KEY` is not configured in `app/.env.local`
-- Impact: the World ID button renders, but `/api/world-id/context` cannot generate RP-signed proof requests until the signing key is supplied
-- Resolution path: add `WORLD_RP_SIGNING_KEY` for the configured `RP_ID`, then verify a >`1 USDC` position flow end-to-end
+- Issue: signed proof requests are configured, but Base Sepolia may lag before a fresh World root becomes onchain-usable
+- Impact: a freshly completed World ID verification can still fail immediate onchain submit until the root is synced on Base
+- Resolution path: keep the new `/api/world-id/verify` root-readiness preflight in front of submission and re-test the >`1 USDC` flow
 
 ### Network metadata - BLOCKED
 
