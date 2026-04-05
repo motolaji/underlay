@@ -14,8 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: cre-workflow/package-lock.json
 
       - name: Install dependencies
         run: npm ci
