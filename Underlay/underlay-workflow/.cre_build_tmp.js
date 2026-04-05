@@ -16814,7 +16814,7 @@ function encodeFunctionData(parameters) {
 }
 var configSchema = exports_external.object({
   schedule: exports_external.string(),
-  polymarketGammaUrl: exports_external.string(),
+  polymarketClobUrl: exports_external.string(),
   positionBookAddress: exports_external.string(),
   settlementManagerAddress: exports_external.string(),
   ethUsdFeedAddress: exports_external.string(),
@@ -16929,19 +16929,19 @@ function checkLegResolution(nodeRuntime, config, caps, leg) {
 }
 function checkPolymarket(nodeRuntime, config, caps, conditionId, bettorOutcome) {
   const response = caps.httpClient.sendRequest(nodeRuntime, {
-    url: `${config.polymarketGammaUrl}/markets?conditionId=${conditionId}`,
+    url: `${config.polymarketClobUrl}/markets/${conditionId}`,
     method: "GET"
   }).result();
   if (response.statusCode !== 200) {
-    nodeRuntime.log(`Polymarket returned ${response.statusCode} for ${conditionId}`);
+    nodeRuntime.log(`Polymarket CLOB returned ${response.statusCode} for ${conditionId}`);
     return null;
   }
-  const markets = JSON.parse(new TextDecoder().decode(response.body));
-  const market = markets[0];
-  if (!market || !market.closed || !market.outcomePrices)
+  const market = JSON.parse(new TextDecoder().decode(response.body));
+  if (!market.closed || !market.tokens?.length)
     return null;
-  const prices = JSON.parse(market.outcomePrices);
-  const yesWon = parseFloat(prices[0]) === 1;
+  const firstToken = market.tokens[0];
+  const yesWon = firstToken.winner === true || firstToken.price > 0.99;
+  nodeRuntime.log(`"${market.question}" → yesWon=${yesWon} | outcome=${bettorOutcome === 0 ? "YES" : "NO"}`);
   if (market.question)
     logChainlinkPriceFeed(nodeRuntime, config, caps, market.question);
   return bettorOutcome === 0 ? yesWon : !yesWon;

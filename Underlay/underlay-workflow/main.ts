@@ -21,7 +21,7 @@ import { encodeFunctionData, decodeFunctionResult, type Abi } from "viem";
 
 const configSchema = z.object({
   schedule: z.string(),
-  polymarketGammaUrl: z.string(),
+  polymarketClobUrl: z.string(),
   positionBookAddress: z.string(),
   settlementManagerAddress: z.string(),
   ethUsdFeedAddress: z.string(),
@@ -142,15 +142,16 @@ function checkLegResolution(nodeRuntime: NodeRuntime<Config>, config: Config, ca
 
 function checkPolymarket(nodeRuntime: NodeRuntime<Config>, config: Config, caps: Caps, conditionId: `0x${string}`, bettorOutcome: number): boolean | null {
   const response = caps.httpClient.sendRequest(nodeRuntime, {
-    url: `${config.polymarketGammaUrl}/markets?conditionId=${conditionId}`,
+    url: `${config.polymarketClobUrl}/markets/${conditionId}`,
     method: "GET",
   }).result();
-  if (response.statusCode !== 200) { nodeRuntime.log(`Polymarket returned ${response.statusCode} for ${conditionId}`); return null; }
-  const markets = JSON.parse(new TextDecoder().decode(response.body)) as Array<{ closed?: boolean; outcomePrices?: string; question?: string }>;
-  const market = markets[0];
-  if (!market || !market.closed || !market.outcomePrices) return null;
-  const prices = JSON.parse(market.outcomePrices) as string[];
-  const yesWon = parseFloat(prices[0]) === 1;
+  if (response.statusCode !== 200) { nodeRuntime.log(`Polymarket CLOB returned ${response.statusCode} for ${conditionId}`); return null; }
+  const market = JSON.parse(new TextDecoder().decode(response.body)) as { closed?: boolean; question?: string; tokens?: Array<{ outcome: string; price: number; winner: boolean }> };
+  if (!market.closed || !market.tokens?.length) return null;
+  // tokens[0] is always the YES-equivalent (Up/Yes/Approve/etc.)
+  const firstToken = market.tokens[0];
+  const yesWon = firstToken.winner === true || firstToken.price > 0.99;
+  nodeRuntime.log(`"${market.question}" → yesWon=${yesWon} | outcome=${bettorOutcome === 0 ? "YES" : "NO"}`);
   if (market.question) logChainlinkPriceFeed(nodeRuntime as unknown as Runtime<Config>, config, caps, market.question);
   return bettorOutcome === 0 ? yesWon : !yesWon;
 }
