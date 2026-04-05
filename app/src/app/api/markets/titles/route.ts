@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { GAMMA_API_BASE } from "@/lib/polymarket";
-import type { PolymarketMarket } from "@/types/market";
+const CLOB_API_BASE = "https://clob.polymarket.com";
 
 // GET /api/markets/titles?conditionId=0x...&conditionId=0x...
 // Returns { "0x...": "Market question title", ... }
@@ -15,12 +14,12 @@ export async function GET(request: NextRequest) {
   const results = await Promise.allSettled(
     conditionIds.map(async (conditionId) => {
       const res = await fetch(
-        `${GAMMA_API_BASE}/markets?conditionId=${conditionId}`,
+        `${CLOB_API_BASE}/markets/${conditionId}`,
         { next: { revalidate: 3600 } }
       );
       if (!res.ok) return null;
-      const data = (await res.json()) as PolymarketMarket[];
-      const question = data[0]?.question ?? null;
+      const data = (await res.json()) as { question?: string };
+      const question = data?.question ?? null;
       return question ? { conditionId, question } : null;
     })
   );

@@ -115,6 +115,16 @@ export function CartDrawer() {
     return liveState?.availableLiability ?? 0n;
   }, [vaultStateQuery.data]);
 
+  const vaultInactive = useMemo(() => {
+    const liveState = vaultStateQuery.data as
+      | { active?: boolean }
+      | undefined;
+
+    // If query hasn't loaded yet, don't block
+    if (!vaultStateQuery.data) return false;
+    return liveState?.active === false;
+  }, [vaultStateQuery.data]);
+
   const quote = useMemo(() => {
     return calculateQuote({
       legs: selectedLegs,
@@ -189,6 +199,7 @@ export function CartDrawer() {
     Boolean(quote) &&
     !needsApproval &&
     !liabilityBlockedReason &&
+    !vaultInactive &&
     validation.blockingReasons.length === 0 &&
     (!worldIdRequired || Boolean(worldIdProof));
 
@@ -788,6 +799,17 @@ export function CartDrawer() {
           </div>
         )}
 
+        {vaultInactive && (
+          <div className="border border-[color:rgba(220,38,38,0.2)] bg-[color:rgba(220,38,38,0.06)] p-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--risk-high)]">
+              Vault inactive
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[color:var(--text-secondary)]">
+              The liquidity pool is below the minimum activation threshold (20 USDC). LP deposits are needed before new positions can be placed.
+            </p>
+          </div>
+        )}
+
         {liabilityBlockedReason && (
           <div className="border border-[color:rgba(220,38,38,0.2)] bg-[color:rgba(220,38,38,0.06)] p-3">
             <p className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--risk-high)]">
@@ -946,6 +968,8 @@ export function CartDrawer() {
           >
             {submissionStatus === "submitting"
               ? "Submitting position..."
+              : vaultInactive
+              ? "Vault Inactive"
               : "Place Position"}
           </button>
         )}
@@ -954,6 +978,8 @@ export function CartDrawer() {
             ? "Add legs and a stake, then score with 0G onchain AI."
             : riskLoading
             ? "Running verifiable inference on the 0G compute network..."
+            : vaultInactive
+            ? "LP balance below 20 USDC minimum. Deposit to reactivate the vault."
             : requiresWorldIdStep
             ? "World ID verification is required before approval and submission."
             : liabilityBlockedReason

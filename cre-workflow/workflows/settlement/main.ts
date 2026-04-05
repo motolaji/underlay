@@ -308,11 +308,12 @@ function checkPolymarket(
 
   if (!market.closed || !market.tokens) return null;
 
-  const yesToken = market.tokens.find((t) => t.outcome === "Yes");
-  if (!yesToken) return null;
+  // tokens[0] is always the YES-equivalent (Up/Yes/Approve/etc.)
+  const firstToken = market.tokens[0];
+  if (!firstToken) return null;
 
   // winner=true is set on resolution; price approaching 1.0 is a reliable fallback
-  const yesWon = yesToken.winner === true || yesToken.price > 0.99;
+  const yesWon = firstToken.winner === true || firstToken.price > 0.99;
 
   nodeRuntime.log(`Market ${conditionId}: closed=${market.closed} yesWon=${yesWon}`);
 

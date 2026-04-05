@@ -7,7 +7,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "simulate": "cre workflow simulate underlay-settlement --target staging",
-    "check": "npm run build"
+    "check": "npm run build",
+    "settle": "tsx scripts/settle.ts",
+    "execute": "tsx scripts/execute.ts",
+    "keeper": "tsx scripts/keeper.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +22,7 @@
   "devDependencies": {
     "@chainlink/cre-sdk": "^1.5.0",
     "@types/node": "^20.19.24",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

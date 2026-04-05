@@ -44,12 +44,14 @@ export async function GET(request: NextRequest) {
     if (marketId) {
       params.set("id", marketId);
     } else if (sort === "ending_soon") {
+      const now = new Date().toISOString();
       const in24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       params.set("active", "true");
       params.set("closed", "false");
       params.set("limit", String(upstreamLimit));
-      params.set("order", "end_date_iso");
+      params.set("order", "endDate");
       params.set("ascending", "true");
+      params.set("end_date_min", now);
       params.set("end_date_max", in24h);
     } else {
       params.set("active", "true");

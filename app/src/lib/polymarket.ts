@@ -284,6 +284,11 @@ export function isValidLegMarket(market: PolymarketMarket) {
     return false;
   }
 
+  // Exclude markets whose scheduled end date has already passed
+  if (market.endDate && new Date(market.endDate).getTime() < Date.now()) {
+    return false;
+  }
+
   if (!market.outcomePrices || outcomes.length !== 2) {
     return false;
   }

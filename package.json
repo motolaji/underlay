@@ -10,6 +10,8 @@
     "typecheck": "npm --prefix app run typecheck",
     "workflow:build": "npm --prefix cre-workflow run build",
     "workflow:simulate": "npm --prefix cre-workflow run simulate",
+    "keeper:settle": "npm --prefix cre-workflow run settle",
+    "keeper:execute": "npm --prefix cre-workflow run execute",
     "contracts:build": "forge build"
   },
   "keywords": [
