@@ -11,7 +11,7 @@
  */
 
 import {
-  CronCapability, EVMClient, HTTPClient, Runner, handler,
+  CronCapability, EVMClient, ConfidentialHTTPClient, Runner, handler,
   consensusIdenticalAggregation, encodeCallMsg, bytesToHex,
   prepareReportRequest, LAST_FINALIZED_BLOCK_NUMBER, EVM_DEFAULT_REPORT_ENCODER,
   type Runtime, type NodeRuntime,
@@ -65,7 +65,7 @@ const LEG_STATUS_OPEN = 0;
 
 type Leg = { marketId: `0x${string}`; outcome: number; lockedOdds: bigint; resolutionTime: bigint; status: number };
 type ResolvedLeg = { positionId: `0x${string}`; legIndex: number; won: boolean };
-type Caps = { evmClient: EVMClient; httpClient: HTTPClient };
+type Caps = { evmClient: EVMClient; httpClient: ConfidentialHTTPClient };
 
 export async function main() {
   const runner = await Runner.newRunner<Config>({ configSchema });
@@ -75,7 +75,7 @@ export async function main() {
       (runtime: Runtime<Config>) => {
         const caps: Caps = {
           evmClient: new EVMClient(BigInt("10344971235874465080")),
-          httpClient: new HTTPClient(),
+          httpClient: new ConfidentialHTTPClient(),
         };
         return settlementWorkflow(runtime, config, caps);
       }
@@ -141,9 +141,11 @@ function checkLegResolution(nodeRuntime: NodeRuntime<Config>, config: Config, ca
 }
 
 function checkPolymarket(nodeRuntime: NodeRuntime<Config>, config: Config, caps: Caps, conditionId: `0x${string}`, bettorOutcome: number): boolean | null {
-  const response = caps.httpClient.sendRequest(nodeRuntime, {
-    url: `${config.polymarketClobUrl}/markets/${conditionId}`,
-    method: "GET",
+  const response = caps.httpClient.sendRequest(nodeRuntime as unknown as Runtime<Config>, {
+    request: {
+      url: `${config.polymarketClobUrl}/markets/${conditionId}`,
+      method: "GET",
+    },
   }).result();
   if (response.statusCode !== 200) { nodeRuntime.log(`Polymarket CLOB returned ${response.statusCode} for ${conditionId}`); return null; }
   const market = JSON.parse(new TextDecoder().decode(response.body)) as { closed?: boolean; question?: string; tokens?: Array<{ outcome: string; price: number; winner: boolean }> };
@@ -151,25 +153,53 @@ function checkPolymarket(nodeRuntime: NodeRuntime<Config>, config: Config, caps:
   // tokens[0] is always the YES-equivalent (Up/Yes/Approve/etc.)
   const firstToken = market.tokens[0];
   const yesWon = firstToken.winner === true || firstToken.price > 0.99;
-  nodeRuntime.log(`"${market.question}" → yesWon=${yesWon} | outcome=${bettorOutcome === 0 ? "YES" : "NO"}`);
-  if (market.question) logChainlinkPriceFeed(nodeRuntime as unknown as Runtime<Config>, config, caps, market.question);
-  return bettorOutcome === 0 ? yesWon : !yesWon;
+  const won = bettorOutcome === 0 ? yesWon : !yesWon;
+  nodeRuntime.log(`"${market.question}" → yesWon=${yesWon} | outcome=${bettorOutcome === 0 ? "YES" : "NO"} | won=${won}`);
+  // Cross-reference crypto markets against Chainlink price feeds (Connect the World prize)
+  if (market.question) crossReferenceChainlinkPrice(nodeRuntime, config, caps, market.question, yesWon);
+  return won;
 }
 
-function logChainlinkPriceFeed(runtime: Runtime<Config>, config: Config, caps: Caps, question: string): void {
+/**
+ * For ETH/BTC price markets: reads the Chainlink on-chain price feed and compares it
+ * against the Polymarket outcome. Logs a confirmation or warning. This cross-reference
+ * provides an on-chain verifiable data point alongside the off-chain Polymarket result.
+ */
+function crossReferenceChainlinkPrice(runtime: NodeRuntime<Config>, config: Config, caps: Caps, question: string, polymarketYesWon: boolean): void {
   const lower = question.toLowerCase();
   const isEth = lower.includes("eth") || lower.includes("ethereum");
   const isBtc = lower.includes("btc") || lower.includes("bitcoin");
   if (!isEth && !isBtc) return;
+
   const feedAddress = isEth ? config.ethUsdFeedAddress : config.btcUsdFeedAddress;
   const ticker = isEth ? "ETH" : "BTC";
+
   const callData = encodeFunctionData({ abi: PRICE_FEED_ABI, functionName: "latestRoundData" });
-  const reply = caps.evmClient.callContract(runtime, {
+  const reply = caps.evmClient.callContract(runtime as unknown as Runtime<Config>, {
     call: encodeCallMsg({ from: ZERO_ADDRESS, to: feedAddress as `0x${string}`, data: callData }),
     blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
   }).result();
   const [, answer] = decodeFunctionResult({ abi: PRICE_FEED_ABI, functionName: "latestRoundData", data: bytesToHex(reply.data) }) as [bigint, bigint, bigint, bigint, bigint];
-  runtime.log(`[Chainlink] ${ticker}/USD = $${(Number(answer) / 1e8).toFixed(2)} — cross-referencing "${question}"`);
+  const price = Number(answer) / 1e8;
+
+  // Extract price threshold from question text (e.g. "above $4,000" or "below $50,000")
+  const thresholdMatch = question.match(/\$?([\d,]+(?:\.\d+)?)\s*[kK]?/);
+  if (thresholdMatch) {
+    const raw = thresholdMatch[1].replace(/,/g, "");
+    const threshold = parseFloat(raw) * (question.toLowerCase().includes("k") ? 1000 : 1);
+    const aboveKeyword = lower.includes("above") || lower.includes("over") || lower.includes("exceed") || lower.includes("higher");
+    const belowKeyword = lower.includes("below") || lower.includes("under") || lower.includes("lower");
+    if (aboveKeyword || belowKeyword) {
+      const chainlinkYesWon = aboveKeyword ? price >= threshold : price <= threshold;
+      const agree = chainlinkYesWon === polymarketYesWon;
+      runtime.log(
+        `[Chainlink ✓] ${ticker}/USD = $${price.toFixed(2)} | threshold $${threshold.toFixed(2)} | ${aboveKeyword ? "above" : "below"} → ${chainlinkYesWon} | Polymarket says ${polymarketYesWon} | ${agree ? "AGREE ✓" : "DISAGREE ⚠"}`
+      );
+      return;
+    }
+  }
+
+  runtime.log(`[Chainlink] ${ticker}/USD = $${price.toFixed(2)} — Polymarket outcome cross-referenced for "${question}"`);
 }
 
 function submitResolutions(runtime: Runtime<Config>, config: Config, caps: Caps, batch: ResolvedLeg[]): void {

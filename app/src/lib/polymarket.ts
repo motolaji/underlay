@@ -347,7 +347,7 @@ export function normalizeMarket(
     closesAtLabel: formatResolutionDate(market.endDate),
     note:
       market.description?.trim() ||
-      "Live Polymarket signal routed through the Gamma API. Pricing and final quote remain Underlay-native.",
+      "Live Polymarket signal routed through the CLOB API. Pricing and final quote remain Underlay-native.",
     routeLabel,
     liquidityLabel: `${formatCompactUsd(liquidity)} liquidity`,
     volumeLabel: `${formatCompactUsd(volume)} volume`,

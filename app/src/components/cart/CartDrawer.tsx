@@ -398,6 +398,14 @@ export function CartDrawer() {
       return;
     }
 
+    // Persist audit provider so the positions page can show the 0G storage link
+    if (risk?.audit?.contentHash) {
+      try {
+        const stored = JSON.parse(localStorage.getItem("underlay_audit_providers") ?? "{}");
+        stored[risk.audit.contentHash] = risk.audit.provider;
+        localStorage.setItem("underlay_audit_providers", JSON.stringify(stored));
+      } catch {}
+    }
     setSubmissionState("success", txHash);
     setTxMode(null);
   }, [
@@ -405,6 +413,7 @@ export function CartDrawer() {
     pendingApprovalAmountRaw,
     parsedStake,
     receiptQuery.isSuccess,
+    risk,
     setSubmissionState,
     txHash,
     txMode,
@@ -977,7 +986,7 @@ export function CartDrawer() {
           {!hasRisk && !riskLoading
             ? "Add legs and a stake, then score with 0G onchain AI."
             : riskLoading
-            ? "Running verifiable inference on the 0G compute network..."
+            ? "Running AI inference on the 0G compute network..."
             : vaultInactive
             ? "LP balance below 20 USDC minimum. Deposit to reactivate the vault."
             : requiresWorldIdStep

@@ -167,7 +167,10 @@ async function sendAndConfirm(
   data: `0x${string}`,
   label: string
 ): Promise<boolean> {
-  const hash = await walletClient.sendTransaction({ to, data });
+  // Fetch current gas price and add 20% buffer to avoid "replacement underpriced" errors
+  const gasPrice = await publicClient.getGasPrice();
+  const gasPriceWithBuffer = (gasPrice * 120n) / 100n;
+  const hash = await walletClient.sendTransaction({ to, data, gasPrice: gasPriceWithBuffer });
   console.log(`  ${label} tx: https://sepolia.basescan.org/tx/${hash}`);
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });

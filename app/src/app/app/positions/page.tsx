@@ -99,6 +99,15 @@ export default function AppPositionsPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [marketTitles, setMarketTitles] = useState<Record<string, string>>({});
   const [settlementTxs, setSettlementTxs] = useState<Record<string, string>>({});
+  const [auditProviders, setAuditProviders] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("underlay_audit_providers") ?? "{}");
+      console.log("[positions] audit providers from localStorage:", stored);
+      setAuditProviders(stored);
+    } catch {}
+  }, []);
 
   const openCount = useMemo(
     () => rows.filter((row) => STATUS_LABELS[row.status] === "Open").length,
@@ -237,7 +246,7 @@ export default function AppPositionsPage() {
     return () => { cancelled = true; };
   }, [address, positionBookAddress, settlementManagerAddress, publicClient]);
 
-  // Fetch market question titles via our server-side proxy (avoids CORS on gamma-api)
+  // Fetch market question titles via our server-side proxy (avoids CORS on CLOB API)
   useEffect(() => {
     if (rows.length === 0) return;
 
@@ -556,9 +565,25 @@ export default function AppPositionsPage() {
                             <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
                               Risk audit
                             </span>
-                            <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
-                              {shortenHash(row.riskAuditHash, 10, 8)}
-                            </span>
+                            {auditProviders[row.riskAuditHash] === "0g-storage" ? (
+                              <a
+                                href={`https://storagescan-galileo.0g.ai/tx/${row.riskAuditHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono text-[10px] text-[color:var(--accent-blue)] hover:underline"
+                              >
+                                {shortenHash(row.riskAuditHash, 10, 8)} ↗
+                              </a>
+                            ) : (
+                              <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
+                                {shortenHash(row.riskAuditHash, 10, 8)}
+                              </span>
+                            )}
+                            {auditProviders[row.riskAuditHash] && (
+                              <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                                ({auditProviders[row.riskAuditHash] === "0g-storage" ? "0G" : "local"})
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             <a

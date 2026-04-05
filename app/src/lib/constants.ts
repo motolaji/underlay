@@ -31,10 +31,10 @@ export const PROTOCOL_CAPABILITY_RAIL = [
 
 export const INFRASTRUCTURE_ITEMS = [
   {
-    name: "Polymarket Gamma API",
+    name: "Polymarket CLOB API",
     role: "Reference signal and resolution source",
   },
-  { name: "0G Compute", role: "Verifiable inference for risk scoring" },
+  { name: "0G Compute", role: "AI inference for risk scoring" },
   { name: "0G Storage", role: "Immutable risk and audit receipts" },
   { name: "World ID", role: "Sybil resistance above the stake gate" },
   { name: "Chainlink CRE", role: "Settlement orchestration and delay flow" },

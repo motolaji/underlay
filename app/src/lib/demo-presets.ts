@@ -8,7 +8,7 @@ export const previewMarkets: PreviewMarket[] = [
     question: "Will ETH settle above $4,000 by July 31?",
     closesAt: "2026-07-31T23:59:59.000Z",
     closesAtLabel: "Closes in 18 days",
-    note: "Preview feed. Gamma API wiring lands in a later round.",
+    note: "Live Polymarket signal routed through the CLOB API. Pricing and final quote remain Underlay-native.",
     routeLabel: "Crypto vault",
     liquidityLabel: "$31k liquidity",
     volumeLabel: "$120k volume",

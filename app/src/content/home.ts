@@ -10,7 +10,7 @@ import type { ProtocolMetric } from "@/types/view-model";
 export const heroContent = {
   eyebrow: "Community-Owned Risk Infrastructure",
   headline: "The house behind your multi-outcome position.",
-  deck: "Underlay is an onchain risk vault. Bettors combine Polymarket outcomes into a single position. LPs collectively underwrite the risk and earn yield when the house wins.",
+  deck: "Underlay is an onchain risk vault. Traders combine Polymarket outcomes into a single position. LPs collectively underwrite the risk and earn yield when the house wins.",
   primaryCta: { label: "Open App", href: "/app" },
   secondaryCta: { label: "Read Mechanics", href: "/protocol" },
 };
@@ -54,7 +54,7 @@ export const protocolMetrics: ProtocolMetric[] = [
 
 export const audienceSplit = [
   {
-    role: "Bettors",
+    role: "Traders",
     headline: "Build a multi-leg position",
     body: "Select outcomes across Polymarket markets and combine them into a single position. Your odds multiply across legs. Underlay prices the combined risk and underwrites the payout.",
     cta: { label: "Browse Markets", href: "/app" },
@@ -62,7 +62,7 @@ export const audienceSplit = [
   {
     role: "LPs",
     headline: "Earn yield as the house",
-    body: "Deposit USDC into the vault. When bettors lose, stakes sweep into the vault and your share price appreciates. When bettors win, the reserve pays out. Idle capital routes to Aave.",
+    body: "Deposit USDC into the vault. When traders lose, stakes sweep into the vault and your share price appreciates. When traders win, the reserve pays out. Idle capital routes to Aave.",
     cta: { label: "Open LP Vault", href: "/app/lp" },
   },
 ];
@@ -74,18 +74,18 @@ export const homeHighlights = [
   },
   {
     title: "AI-scored, not AI-themed",
-    body: "0G Compute verifies the risk score and 0G Storage pins the audit receipt. The AI doesn't brand the product — it prices the position.",
+    body: "0G Compute scores the position risk via AI inference and 0G Storage pins the audit receipt. The AI doesn't brand the product — it prices the position.",
   },
   {
     title: "Delayed settlement by design",
-    body: "Chainlink CRE enforces risk-tier delay windows before reserve payout or stake sweep. High-risk positions wait 24h. It is a feature, not a bug.",
+    body: "Chainlink CRE enforces risk-tier delay windows before reserve payout or stake sweep. High-risk positions wait 2 minutes. It is a feature, not a bug.",
   },
 ];
 
 export const howItWorksSteps = [
   {
     title: "Signal intake",
-    body: "Reference probabilities and resolution signals enter from Polymarket's Gamma API. Underlay does not run the market.",
+    body: "Reference probabilities and resolution signals enter from Polymarket's CLOB API. Underlay does not run the market.",
   },
   {
     title: "Risk inference",

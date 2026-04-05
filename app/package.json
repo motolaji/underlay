@@ -29,6 +29,7 @@
     "tailwind-merge": "^3.5.0",
     "viem": "^2.47.6",
     "wagmi": "^3.6.0",
+    "xmlhttprequest": "^1.8.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

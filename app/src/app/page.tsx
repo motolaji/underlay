@@ -5,6 +5,7 @@ import { InfrastructureRail } from "@/components/home/InfrastructureRail";
 import { HowItWorksBand } from "@/components/home/HowItWorksBand";
 import { SectionMasthead } from "@/components/common/SectionMasthead";
 import { MarketingShell } from "@/components/shell/MarketingShell";
+import { NodeBackground } from "@/components/common/NodeBackground";
 import {
   audienceSplit,
   capabilityRail,
@@ -99,8 +100,9 @@ export default function Home() {
   return (
     <MarketingShell>
       {/* Hero */}
-      <section className="section-shell pt-4">
-        <div className="p-8 sm:p-10 lg:p-12">
+      <section className="section-shell relative overflow-hidden pt-4">
+        <NodeBackground />
+        <div className="relative p-8 sm:p-10 lg:p-12">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div className="space-y-6">
               <p className="eyebrow">{heroContent.eyebrow}</p>
@@ -156,7 +158,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Bettor / LP split */}
+      {/* Trader / LP split */}
       <section className="section-shell">
         <div className="mb-6">
           <p className="eyebrow mb-3">Two audiences, one protocol</p>
@@ -164,7 +166,7 @@ export default function Home() {
             className="text-2xl text-[color:var(--text-primary)] sm:text-3xl"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            Bettors build positions. LPs earn yield.
+            Traders build positions. LPs earn yield.
           </h2>
         </div>
         <div className="grid gap-px border border-[color:var(--border-subtle)] lg:grid-cols-2">

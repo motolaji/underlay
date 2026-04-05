@@ -73,9 +73,10 @@ async function scoreWith0GCompute(
   const privateKey = process.env.OG_PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
-    throw new Error("0G environment is not configured.");
+    throw new Error("0G environment is not configured (OG_EVM_RPC / OG_PRIVATE_KEY missing).");
   }
 
+  console.log("[0G Compute] connecting to:", rpcUrl);
   const [brokerModule, ethersModule] = await Promise.all([
     import("@0glabs/0g-serving-broker"),
     import("ethers"),
@@ -87,6 +88,7 @@ async function scoreWith0GCompute(
   const signer = new ethersModule.Wallet(privateKey, provider);
   const broker = await createZGComputeNetworkBroker(signer);
   const services = await broker.inference.listService();
+  console.log("[0G Compute] available services:", services.map((s: { model?: string }) => s.model).join(", ") || "(none)");
 
   // Prefer any chat/text model — exclude image-only services
   const IMAGE_KEYWORDS = ["image", "vision", "img", "clip", "diffusion"];
@@ -100,6 +102,7 @@ async function scoreWith0GCompute(
   if (!llmService) {
     throw new Error("No suitable 0G LLM service was found.");
   }
+  console.log("[0G Compute] using service:", llmService.model, "provider:", llmService.provider);
 
   const prompt = buildRiskPrompt(payload);
   const metadata = await broker.inference.getServiceMetadata(
@@ -276,13 +279,20 @@ async function persistRiskAudit(
   const privateKey = process.env.OG_PRIVATE_KEY;
 
   if (!rpcUrl || !indexerRpc || !privateKey) {
-    return {
-      contentHash: hashAuditEntry(entry),
-      provider: "local-hash",
-    };
+    const localHash = hashAuditEntry(entry);
+    console.warn("[0G Storage] env vars missing (OG_EVM_RPC / OG_INDEXER_RPC / OG_PRIVATE_KEY) — falling back to local hash:", localHash);
+    return { contentHash: localHash, provider: "local-hash" };
   }
 
   try {
+    console.log("[0G Storage] uploading audit entry — indexer:", indexerRpc);
+    // 0G SDK uses XMLHttpRequest internally — polyfill for Node.js environment
+    if (typeof XMLHttpRequest === "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { XMLHttpRequest: XHR } = await import("xmlhttprequest" as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).XMLHttpRequest = XHR;
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sdk: any = await import("@0glabs/0g-ts-sdk");
     const ethersModule = await import("ethers");
@@ -295,25 +305,26 @@ async function persistRiskAudit(
       throw new Error(String(treeError ?? "Failed to create 0G merkle tree."));
     }
 
+    console.log("[0G Storage] merkle root:", tree.rootHash());
+
     const provider = new ethersModule.JsonRpcProvider(rpcUrl);
     const signer = new ethersModule.Wallet(privateKey, provider);
     const indexer = new sdk.Indexer(indexerRpc);
     const [, uploadError] = await indexer.upload(file, rpcUrl, signer);
 
-    if (uploadError) {
-      throw new Error(String(uploadError));
+    // SDK returns {} (empty object) on success — only treat non-empty objects or strings as errors
+    const isRealError = uploadError && (typeof uploadError === "string" || Object.keys(uploadError).length > 0);
+    if (isRealError) {
+      throw new Error(typeof uploadError === "string" ? uploadError : JSON.stringify(uploadError));
     }
 
-    return {
-      contentHash: tree.rootHash() as `0x${string}`,
-      provider: "0g-storage",
-    };
+    const contentHash = tree.rootHash() as `0x${string}`;
+    console.log("[0G Storage] upload success — root hash:", contentHash);
+    return { contentHash, provider: "0g-storage" };
   } catch (error) {
-    console.warn("0G Storage upload failed, using local audit hash", error);
-    return {
-      contentHash: hashAuditEntry(entry),
-      provider: "local-hash",
-    };
+    const localHash = hashAuditEntry(entry);
+    console.error("[0G Storage] upload failed — falling back to local hash:", localHash, "\nReason:", error);
+    return { contentHash: localHash, provider: "local-hash" };
   }
 }
 

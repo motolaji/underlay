@@ -84,8 +84,8 @@ export default function ProtocolPage() {
             <p className="data-label">Position lifecycle</p>
             <div className="mt-5 space-y-2.5">
               {[
-                "Bettor selects outcomes from Polymarket markets via Gamma API.",
-                "0G Compute verifies risk score. 0G Storage pins the audit payload.",
+                "Trader selects outcomes from Polymarket markets via CLOB API.",
+                "0G Compute scores position risk via AI inference. 0G Storage pins the audit payload.",
                 "Vault prices the combined position using utilisation, correlation factor, and config caps.",
                 "Position is locked with a quote and stake is transferred.",
                 "Chainlink CRE waits through the risk-tier delay window.",
