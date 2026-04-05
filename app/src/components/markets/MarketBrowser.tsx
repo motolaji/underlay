@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { toast } from "sonner";
 
 import { EmptyState } from "@/components/common/EmptyState";
 import { useMarketsQuery } from "@/hooks/queries/useMarketsQuery";
 import { previewMarkets } from "@/lib/demo-presets";
+import { POSITION_RULES } from "@/lib/constants";
 import { useMarketsStore } from "@/stores/marketsStore";
 import { useSlipStore } from "@/stores/slipStore";
 import { cn } from "@/lib/utils";
@@ -12,11 +14,11 @@ import { cn } from "@/lib/utils";
 const CATEGORIES = ["all", "crypto", "politics", "sports", "mixed"] as const;
 
 export function MarketBrowser() {
-  const { filters, setCategory, setSearch } = useMarketsStore();
+  const { filters, sort, setCategory, setSearch, setSort } = useMarketsStore();
   const selectedLegs = useSlipStore((state) => state.selectedLegs);
   const addLeg = useSlipStore((state) => state.addLeg);
   const removeLeg = useSlipStore((state) => state.removeLeg);
-  const marketsQuery = useMarketsQuery(filters.category);
+  const marketsQuery = useMarketsQuery(filters.category, sort);
 
   const markets = useMemo(() => {
     const liveMarkets = marketsQuery.data?.markets ?? [];
@@ -94,30 +96,45 @@ export function MarketBrowser() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          value={filters.search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search markets..."
-          className="focus-ring w-full border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-3 py-2.5 text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)] sm:max-w-xs"
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setCategory(option as typeof filters.category)}
-              className={cn(
-                "px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors duration-150",
-                filters.category === option
-                  ? "bg-[color:var(--text-primary)] text-[color:var(--bg-base)]"
-                  : "border border-[color:var(--border-default)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
-              )}
-            >
-              {option}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            value={filters.search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search markets..."
+            className="focus-ring w-full border border-[color:var(--border-default)] bg-[color:var(--bg-surface)] px-3 py-2.5 text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)] sm:max-w-xs"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setCategory(option as typeof filters.category)}
+                className={cn(
+                  "px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors duration-150",
+                  filters.category === option
+                    ? "bg-[color:var(--text-primary)] text-[color:var(--bg-base)]"
+                    : "border border-[color:var(--border-default)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setSort(sort === "ending_soon" ? "volume" : "ending_soon")}
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors duration-150",
+            sort === "ending_soon"
+              ? "bg-[color:var(--badge-warning-bg)] border border-[color:var(--badge-warning-border)] text-[color:var(--badge-warning-text)]"
+              : "border border-[color:var(--border-default)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
+          )}
+        >
+          <span>⏱</span>
+          <span>Closing Soon</span>
+        </button>
       </div>
 
       {marketsQuery.isLoading ? (
@@ -218,6 +235,10 @@ export function MarketBrowser() {
                           onClick={() => {
                             if (isSelected) {
                               removeLeg(market.marketId, outcome.outcomeId);
+                            } else if (selectedLegs.length >= POSITION_RULES.maxLegsPerPosition) {
+                              toast.error(`Max ${POSITION_RULES.maxLegsPerPosition} legs per position`, {
+                                description: "Remove a leg before adding another.",
+                              });
                             } else {
                               addLeg({
                                 marketId: market.marketId,
@@ -259,7 +280,12 @@ export function MarketBrowser() {
                       {market.volumeLabel}
                     </span>
                   </div>
-                  <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                  <span className={cn(
+                    "font-mono text-[10px]",
+                    market.riskBand === "High"
+                      ? "text-[color:var(--badge-danger-text)]"
+                      : "text-[color:var(--text-tertiary)]"
+                  )}>
                     {market.closesAtLabel}
                   </span>
                 </div>

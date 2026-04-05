@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category") ?? "all";
   const limit = Number(searchParams.get("limit") ?? 24);
   const marketId = searchParams.get("id");
+  const sort = searchParams.get("sort") ?? "volume";
   const requestedLimit = Math.min(Math.max(limit, 1), 50);
   const upstreamLimit = marketId
     ? 1
@@ -42,6 +43,14 @@ export async function GET(request: NextRequest) {
 
     if (marketId) {
       params.set("id", marketId);
+    } else if (sort === "ending_soon") {
+      const in24h = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      params.set("active", "true");
+      params.set("closed", "false");
+      params.set("limit", String(upstreamLimit));
+      params.set("order", "end_date_iso");
+      params.set("ascending", "true");
+      params.set("end_date_max", in24h);
     } else {
       params.set("active", "true");
       params.set("closed", "false");
@@ -57,7 +66,7 @@ export async function GET(request: NextRequest) {
           Accept: "application/json",
         },
         next: {
-          revalidate: 30,
+          revalidate: sort === "ending_soon" ? 0 : 30,
         },
       }
     );

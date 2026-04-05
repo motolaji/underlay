@@ -13,4 +13,13 @@ export const settlementManagerAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "event",
+    name: "SettlementExecuted",
+    inputs: [
+      { name: "positionId", type: "bytes32", indexed: true },
+      { name: "payout", type: "uint256", indexed: false },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;

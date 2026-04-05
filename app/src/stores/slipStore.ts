@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { POSITION_RULES } from "@/lib/constants";
 import type { SlipStoreState } from "@/types/store";
 import type { SelectedLeg, WorldIdProof } from "@/types/domain";
 import type { RiskAssessmentResponseDto } from "@/types/dto";
@@ -37,10 +38,22 @@ export const useSlipStore = create<SlipStore>((set) => ({
     set((state) => {
       const exists = state.selectedLegs.some((entry) => isSameLeg(entry, leg));
 
+      // If already selected, toggle off (remove)
+      if (exists) {
+        return {
+          selectedLegs: state.selectedLegs.filter((entry) => !isSameLeg(entry, leg)),
+          submissionStatus: "idle",
+          submissionError: null,
+        };
+      }
+
+      // Hard cap — caller is responsible for showing feedback
+      if (state.selectedLegs.length >= POSITION_RULES.maxLegsPerPosition) {
+        return state;
+      }
+
       return {
-        selectedLegs: exists
-          ? state.selectedLegs.filter((entry) => !isSameLeg(entry, leg))
-          : [...state.selectedLegs, leg],
+        selectedLegs: [...state.selectedLegs, leg],
         submissionStatus: "idle",
         submissionError: null,
       };

@@ -11,7 +11,7 @@ import { formatUsdc, shortenHash } from "@/lib/format";
 
 const BASE_SEPOLIA_SCAN = "https://sepolia.basescan.org";
 
-const POSITION_COLUMNS = ["State", "Position", "Legs", "Stake", "Payout", "Risk", "Placed"];
+const POSITION_COLUMNS = ["State", "Position", "Legs", "Stake", "Payout", "Risk", "Timeline"];
 
 const STATUS_LABELS = ["Open", "Partial", "Won", "Lost", "Voided"];
 const LEG_STATUS_LABELS = ["Open", "Won", "Lost", "Voided"];
@@ -60,6 +60,33 @@ function formatOdds(raw: bigint) {
   return `${(Number(raw) / 1_000_000).toFixed(2)}x`;
 }
 
+function formatDate(unixSeconds: number) {
+  return new Date(unixSeconds * 1000).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(unixSeconds: number) {
+  return new Date(unixSeconds * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function latestResolutionTime(legs: Leg[]): bigint | null {
+  if (legs.length === 0) return null;
+  return legs.reduce((max, leg) => (leg.resolutionTime > max ? leg.resolutionTime : max), legs[0].resolutionTime);
+}
+
+function outcomeLabel(outcome: number) {
+  return outcome === 0 ? "YES" : "NO";
+}
+
 export default function AppPositionsPage() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -70,6 +97,8 @@ export default function AppPositionsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [marketTitles, setMarketTitles] = useState<Record<string, string>>({});
+  const [settlementTxs, setSettlementTxs] = useState<Record<string, string>>({});
 
   const openCount = useMemo(
     () => rows.filter((row) => STATUS_LABELS[row.status] === "Open").length,
@@ -208,6 +237,69 @@ export default function AppPositionsPage() {
     return () => { cancelled = true; };
   }, [address, positionBookAddress, settlementManagerAddress, publicClient]);
 
+  // Fetch market question titles via our server-side proxy (avoids CORS on gamma-api)
+  useEffect(() => {
+    if (rows.length === 0) return;
+
+    const uniqueIds = [...new Set(rows.flatMap((row) => row.legs.map((leg) => leg.marketId)))];
+    let cancelled = false;
+
+    async function fetchTitles() {
+      const params = new URLSearchParams();
+      uniqueIds.forEach((id) => params.append("conditionId", id));
+      const res = await fetch(`/api/markets/titles?${params.toString()}`);
+      if (!res.ok || cancelled) return;
+      const titles = (await res.json()) as Record<string, string>;
+      if (!cancelled) setMarketTitles(titles);
+    }
+
+    void fetchTitles();
+    return () => { cancelled = true; };
+  }, [rows]);
+
+  // Fetch SettlementExecuted tx hashes for Won positions
+  useEffect(() => {
+    const wonIds = rows
+      .filter((row) => row.status === 2 && row.payout === 0n)
+      .map((row) => row.id);
+    if (!publicClient || !settlementManagerAddress || wonIds.length === 0) return;
+
+    const smAddress = settlementManagerAddress as `0x${string}`;
+    let cancelled = false;
+
+    async function fetchSettlementTxs() {
+      const latestBlock = await publicClient!.getBlockNumber();
+      const fromBlock = latestBlock > 49000n ? latestBlock - 49000n : 0n;
+      const logs = await publicClient!.getLogs({
+        address: smAddress,
+        event: {
+          type: "event",
+          name: "SettlementExecuted",
+          inputs: [
+            { name: "positionId", type: "bytes32", indexed: true },
+            { name: "payout", type: "uint256", indexed: false },
+            { name: "timestamp", type: "uint256", indexed: false },
+          ],
+        },
+        args: { positionId: wonIds as `0x${string}`[] },
+        fromBlock,
+        toBlock: "latest",
+      });
+      if (cancelled) return;
+      const txMap: Record<string, string> = {};
+      for (const log of logs) {
+        const posId = (log.args as { positionId?: string }).positionId;
+        if (log.transactionHash && posId) {
+          txMap[posId] = log.transactionHash;
+        }
+      }
+      setSettlementTxs(txMap);
+    }
+
+    void fetchSettlementTxs();
+    return () => { cancelled = true; };
+  }, [rows, publicClient, settlementManagerAddress]);
+
   return (
     <div className="section-shell space-y-6 py-6">
       <div>
@@ -296,6 +388,8 @@ export default function AppPositionsPage() {
                 const statusLabel = STATUS_LABELS[row.status] ?? "Unknown";
                 const isOpen = expanded.has(row.id);
 
+                const lastResolution = latestResolutionTime(row.legs);
+
                 return (
                   <div key={row.id}>
                     {/* Position row */}
@@ -343,7 +437,26 @@ export default function AppPositionsPage() {
 
                       {/* Payout */}
                       <div className="font-mono text-[color:var(--metric-accent-text)]">
-                        {formatUsdc(row.payout)}
+                        {formatUsdc(
+                          row.payout > 0n
+                            ? row.payout
+                            : (row.stake * row.combinedOdds) / 1_000_000n
+                        )}
+                        {row.status === 2 && row.payout === 0n && (
+                          settlementTxs[row.id] ? (
+                            <a
+                              href={`${BASE_SEPOLIA_SCAN}/tx/${settlementTxs[row.id]}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-0.5 block font-mono text-[9px] text-[color:var(--text-tertiary)] hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              paid out ↗
+                            </a>
+                          ) : (
+                            <div className="mt-0.5 font-mono text-[9px] text-[color:var(--text-tertiary)]">paid out</div>
+                          )
+                        )}
                       </div>
 
                       {/* Risk */}
@@ -351,11 +464,18 @@ export default function AppPositionsPage() {
                         {RISK_LABELS[row.riskTier] ?? "Unknown"}
                       </div>
 
-                      {/* Placed + expand indicator */}
+                      {/* Timeline + expand indicator */}
                       <div className="flex items-start justify-between">
-                        <span className="font-mono text-[color:var(--text-secondary)]">
-                          {new Date(Number(row.placedAt) * 1000).toLocaleString()}
-                        </span>
+                        <div>
+                          <div className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                            Placed {formatDate(Number(row.placedAt))}
+                          </div>
+                          {lastResolution && (
+                            <div className="mt-0.5 font-mono text-[10px] text-[color:var(--text-secondary)]">
+                              Resolves {formatDate(Number(lastResolution))}
+                            </div>
+                          )}
+                        </div>
                         <span className="ml-2 font-mono text-[10px] text-[color:var(--text-tertiary)]">
                           {isOpen ? "▲" : "▼"}
                         </span>
@@ -365,30 +485,57 @@ export default function AppPositionsPage() {
                     {/* Expanded leg detail */}
                     {isOpen && (
                       <div className="border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-elevated)] px-4 py-4">
+                        {/* Position summary */}
+                        <div className="mb-4 grid grid-cols-3 gap-px border border-[color:var(--border-subtle)] bg-[color:var(--border-subtle)]">
+                          <div className="bg-[color:var(--bg-surface)] px-3 py-2">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">Position</div>
+                            <div className="mt-0.5 font-mono text-[11px] text-[color:var(--text-primary)]">{shortenHash(row.id)}</div>
+                          </div>
+                          <div className="bg-[color:var(--bg-surface)] px-3 py-2">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">Placed</div>
+                            <div className="mt-0.5 font-mono text-[11px] text-[color:var(--text-primary)]">{formatDateTime(Number(row.placedAt))}</div>
+                          </div>
+                          <div className="bg-[color:var(--bg-surface)] px-3 py-2">
+                            <div className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">Result by</div>
+                            <div className="mt-0.5 font-mono text-[11px] text-[color:var(--text-primary)]">
+                              {lastResolution ? formatDateTime(Number(lastResolution)) : "—"}
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Legs */}
                         <div className="mb-4">
                           <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
-                            Legs ({row.legs.length})
+                            Selections ({row.legs.length})
                           </p>
                           <div className="space-y-2">
                             {row.legs.map((leg, i) => {
                               const legStatusLabel = LEG_STATUS_LABELS[leg.status] ?? "Unknown";
+                              const selection = outcomeLabel(leg.outcome);
                               return (
                                 <div
                                   key={i}
-                                  className="flex items-center justify-between border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-3 py-2"
+                                  className="flex items-center justify-between border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface)] px-3 py-2.5"
                                 >
                                   <div className="flex items-center gap-3">
                                     <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                                      #{i + 1}
+                                      {String(i + 1).padStart(2, "0")}
                                     </span>
                                     <div>
-                                      <div className="font-mono text-[11px] text-[color:var(--text-primary)]">
-                                        Market {shortenHash(leg.marketId)}
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-[11px] text-[color:var(--text-primary)]">
+                                          {marketTitles[leg.marketId] ?? `Market ${shortenHash(leg.marketId)}`}
+                                        </span>
+                                        <span className={`shrink-0 border px-1.5 py-0.5 font-mono text-[9px] font-medium ${
+                                          selection === "YES"
+                                            ? "border-[color:var(--badge-success-border)] text-[color:var(--badge-success-text)]"
+                                            : "border-[color:var(--badge-danger-border)] text-[color:var(--badge-danger-text)]"
+                                        }`}>
+                                          {selection}
+                                        </span>
                                       </div>
                                       <div className="mt-0.5 font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                                        Outcome {leg.outcome} · {formatOdds(leg.lockedOdds)} ·{" "}
-                                        Resolves {new Date(Number(leg.resolutionTime) * 1000).toLocaleDateString()}
+                                        {formatOdds(leg.lockedOdds)} locked · Resolves {formatDateTime(Number(leg.resolutionTime))}
                                       </div>
                                     </div>
                                   </div>

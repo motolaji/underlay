@@ -27,7 +27,7 @@ import {
   type NodeRuntime,
 } from "@chainlink/cre-sdk";
 import { z } from "zod";
-import { encodeFunctionData, decodeFunctionResult, parseAbi } from "viem";
+import { encodeFunctionData, decodeFunctionResult, type Abi } from "viem";
 
 // ---------------------------------------------------------------------------
 // Capabilities (instantiated once, reused)
@@ -45,7 +45,7 @@ const evmClient = new EVMClient(
 
 const configSchema = z.object({
   schedule: z.string(),
-  polymarketGammaUrl: z.string(),
+  polymarketClobUrl: z.string(),
   positionBookAddress: z.string(),
   settlementManagerAddress: z.string(),
   ethUsdFeedAddress: z.string(),
@@ -62,21 +62,34 @@ const configSchema = z.object({
 type Config = z.infer<typeof configSchema>;
 
 // ---------------------------------------------------------------------------
-// ABIs
+// ABIs — JSON format avoids parseAbi tuple crash in CRE WASM sandbox
 // ---------------------------------------------------------------------------
 
-const POSITION_BOOK_ABI = parseAbi([
-  "function getOpenPositions() external view returns (bytes32[])",
-  "function getPositionLegs(bytes32 positionId) external view returns (tuple(bytes32 marketId, uint8 outcome, uint64 lockedOdds, uint64 resolutionTime, uint8 status)[])",
-]);
+const POSITION_BOOK_ABI: Abi = [
+  { type: "function", name: "getOpenPositions", inputs: [], outputs: [{ type: "bytes32[]", name: "" }], stateMutability: "view" },
+  {
+    type: "function", name: "getPositionLegs",
+    inputs: [{ type: "bytes32", name: "positionId" }],
+    outputs: [{ type: "tuple[]", name: "", components: [
+      { type: "bytes32", name: "marketId" }, { type: "uint8", name: "outcome" },
+      { type: "uint64", name: "lockedOdds" }, { type: "uint64", name: "resolutionTime" },
+      { type: "uint8", name: "status" },
+    ]}],
+    stateMutability: "view",
+  },
+];
 
-const SETTLEMENT_ABI = parseAbi([
-  "function resolveLegs(bytes32[] positionIds, uint8[] legIndexes, bool[] outcomes) external",
-]);
+const SETTLEMENT_ABI: Abi = [
+  { type: "function", name: "resolveLegs",
+    inputs: [{ type: "bytes32[]", name: "positionIds" }, { type: "uint8[]", name: "legIndexes" }, { type: "bool[]", name: "outcomes" }],
+    outputs: [], stateMutability: "nonpayable" },
+];
 
-const PRICE_FEED_ABI = parseAbi([
-  "function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80)",
-]);
+const PRICE_FEED_ABI: Abi = [
+  { type: "function", name: "latestRoundData", inputs: [],
+    outputs: [{ type: "uint80", name: "roundId" }, { type: "int256", name: "answer" }, { type: "uint256", name: "startedAt" }, { type: "uint256", name: "updatedAt" }, { type: "uint80", name: "answeredInRound" }],
+    stateMutability: "view" },
+];
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 const LEG_STATUS_OPEN = 0;
@@ -274,29 +287,34 @@ function checkPolymarket(
   conditionId: `0x${string}`,
   bettorOutcome: number
 ): boolean | null {
+  // CLOB API returns a single lean market object (~2KB vs gamma's 100KB+)
   const response = httpClient
     .sendRequest(nodeRuntime, {
-      url: `${config.polymarketGammaUrl}/markets?conditionId=${conditionId}`,
+      url: `${config.polymarketClobUrl}/markets/${conditionId}`,
       method: "GET",
     })
     .result();
 
   if (response.statusCode !== 200) {
-    nodeRuntime.log(`Polymarket returned ${response.statusCode} for ${conditionId}`);
+    nodeRuntime.log(`Polymarket CLOB returned ${response.statusCode} for ${conditionId}`);
     return null;
   }
 
-  const markets = JSON.parse(new TextDecoder().decode(response.body)) as Array<{
+  const market = JSON.parse(new TextDecoder().decode(response.body)) as {
     closed?: boolean;
-    outcomePrices?: string;
     question?: string;
-  }>;
+    tokens?: Array<{ outcome: string; price: number; winner: boolean }>;
+  };
 
-  const market = markets[0];
-  if (!market || !market.closed || !market.outcomePrices) return null;
+  if (!market.closed || !market.tokens) return null;
 
-  const prices = JSON.parse(market.outcomePrices) as string[];
-  const yesWon = parseFloat(prices[0]) === 1;
+  const yesToken = market.tokens.find((t) => t.outcome === "Yes");
+  if (!yesToken) return null;
+
+  // winner=true is set on resolution; price approaching 1.0 is a reliable fallback
+  const yesWon = yesToken.winner === true || yesToken.price > 0.99;
+
+  nodeRuntime.log(`Market ${conditionId}: closed=${market.closed} yesWon=${yesWon}`);
 
   // Cross-reference crypto markets with Chainlink price feeds (Connect the World prize)
   if (market.question) {

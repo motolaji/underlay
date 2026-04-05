@@ -263,6 +263,7 @@ export function CartDrawer() {
   const handleSubmit = useCallback(async () => {
     if (
       !riskEngineAddress ||
+      !usdcAddress ||
       !risk ||
       !quote ||
       !address ||
@@ -273,6 +274,26 @@ export function CartDrawer() {
 
     try {
       setSubmissionState("submitting", undefined, null);
+
+      // Verify live onchain allowance before submitting — UI state can be stale
+      if (publicClient) {
+        const liveAllowance = await publicClient.readContract({
+          address: usdcAddress,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, riskEngineAddress],
+        });
+        if (liveAllowance < parsedStake) {
+          setOptimisticAllowance(0n);
+          void allowanceQuery.refetch();
+          setSubmissionState(
+            "error",
+            undefined,
+            "USDC allowance is insufficient. Please approve the required amount first."
+          );
+          return;
+        }
+      }
       const payload = buildRiskEngineSubmission({
         selectedLegs,
         stakeRaw: parsedStake,
@@ -336,15 +357,18 @@ export function CartDrawer() {
     }
   }, [
     address,
+    address,
+    allowanceQuery,
+    liabilityBlockedReason,
     parsedStake,
+    publicClient,
     quote,
     risk,
     riskEngineAddress,
     selectedLegs,
     setSubmissionState,
+    usdcAddress,
     worldIdProof,
-    liabilityBlockedReason,
-    publicClient,
     writeContractAsync,
   ]);
 
@@ -400,6 +424,15 @@ export function CartDrawer() {
     parsedStake,
     txMode,
   ]);
+
+  // Auto-clear the slip a few seconds after a successful submission
+  useEffect(() => {
+    if (submissionStatus !== "success") return;
+    const timeout = window.setTimeout(() => {
+      clearLegs();
+    }, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [clearLegs, submissionStatus]);
 
   const maxAllowedStakeRaw = useMemo(() => {
     if (!risk) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { DM_Mono, Inter, Syne } from "next/font/google";
+import { Toaster } from "sonner";
 import { AppProviders } from "@/providers/AppProviders";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${display.variable} ${sans.variable} ${mono.variable}`}>
         <AppProviders cookies={cookies}>{children}</AppProviders>
+        <Toaster position="bottom-center" theme="dark" richColors />
       </body>
     </html>
   );

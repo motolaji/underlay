@@ -230,11 +230,32 @@ export default function AppLpPage() {
   const maxRedeemShares = maxRedeemQuery.data ?? 0n;
   const maxWithdrawAssets = maxWithdrawQuery.data ?? 0n;
   const withdrawalDelay = withdrawalDelayQuery.data ?? 0n;
+
+  // Available (unlocked) assets = total assets minus vault's open liability
+  const openLiability = vaultState?.openLiability ?? 0n;
+  const availableAssets =
+    totalAssets > openLiability ? totalAssets - openLiability : 0n;
+  // User's pro-rata share of available assets (in shares)
+  const maxWithdrawableShares =
+    totalAssets > 0n && userShares > 0n
+      ? (userShares * availableAssets) / totalAssets
+      : 0n;
+  // USDC value equivalents for display
+  const userLockedValueRaw =
+    totalAssets > 0n
+      ? (userValueRaw * openLiability) / totalAssets
+      : 0n;
+  const userAvailableValueRaw =
+    userValueRaw > userLockedValueRaw
+      ? userValueRaw - userLockedValueRaw
+      : 0n;
+
   const canRequestWithdrawal =
     isConnected &&
     Boolean(vaultAddress) &&
     withdrawSharesRaw > 0n &&
-    withdrawSharesRaw <= userShares;
+    withdrawSharesRaw <= userShares &&
+    withdrawSharesRaw <= maxWithdrawableShares;
   const canRedeem =
     isConnected &&
     Boolean(vaultAddress) &&
@@ -528,9 +549,23 @@ export default function AppLpPage() {
               meta="per UVS"
             />
           </div>
-          <div className="mt-5 flex gap-6 border-t border-[color:var(--border-subtle)] pt-4">
-            <MiniStat label="Wallet USDC" value={formatUsdc(userUsdcBalance)} />
-            <MiniStat label="Allowance" value={formatUsdc(allowance)} />
+          <div className="mt-5 border-t border-[color:var(--border-subtle)] pt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[color:var(--text-secondary)]">Total value</span>
+              <span className="font-mono text-[color:var(--text-primary)]">{formatUsdc(userValueRaw)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[color:var(--text-secondary)]">Backing open positions</span>
+              <span className="font-mono text-[color:var(--risk-medium)]">−{formatUsdc(userLockedValueRaw)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs border-t border-[color:var(--border-subtle)] pt-2">
+              <span className="font-medium text-[color:var(--text-primary)]">Available to request</span>
+              <span className="font-mono font-medium text-[color:var(--data-positive)]">{formatUsdc(userAvailableValueRaw)}</span>
+            </div>
+            <div className="flex gap-6 pt-2">
+              <MiniStat label="Wallet USDC" value={formatUsdc(userUsdcBalance)} />
+              <MiniStat label="Allowance" value={formatUsdc(allowance)} />
+            </div>
           </div>
         </div>
 
@@ -716,16 +751,35 @@ export default function AppLpPage() {
               <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)]">
                 Shares to withdraw
               </span>
-              <input
-                value={withdrawInput}
-                onChange={(e) => setWithdrawInput(e.target.value)}
-                placeholder="0.00"
-                className="mt-2 w-full border border-[color:var(--border-default)] bg-[color:var(--bg-elevated)] px-3 py-3 font-mono text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)] outline-none focus:border-[color:var(--accent-blue)]"
-              />
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={withdrawInput}
+                  onChange={(e) => setWithdrawInput(e.target.value)}
+                  placeholder="0.00"
+                  className="flex-1 border border-[color:var(--border-default)] bg-[color:var(--bg-elevated)] px-3 py-3 font-mono text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-tertiary)] outline-none focus:border-[color:var(--accent-blue)]"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWithdrawInput(formatUnits(maxWithdrawableShares, 6))
+                  }
+                  disabled={maxWithdrawableShares === 0n}
+                  className="border border-[color:var(--border-default)] px-3 font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-secondary)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                >
+                  Max
+                </button>
+              </div>
             </label>
-            <p className="mt-2 font-mono text-[10px] text-[color:var(--text-tertiary)]">
-              Available shares: {formatUnits(userShares, 6)}
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
+                Requestable: {formatUnits(maxWithdrawableShares, 6)} shares (~{formatUsdc(userAvailableValueRaw)})
+              </p>
+              {withdrawSharesRaw > maxWithdrawableShares && maxWithdrawableShares < userShares && (
+                <p className="font-mono text-[10px] text-[color:var(--risk-high)]">
+                  Exceeds available — {formatUsdc(userLockedValueRaw)} is backing open positions
+                </p>
+              )}
+            </div>
 
             <div className="mt-4 grid gap-2">
               <button
