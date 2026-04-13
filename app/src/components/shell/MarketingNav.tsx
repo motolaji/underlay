@@ -10,7 +10,6 @@ const navItems = [
 ];
 
 export function MarketingNav() {
-  const theme = useUiStore((state) => state.theme);
   const toggleTheme = useUiStore((state) => state.toggleTheme);
 
   return (
@@ -52,8 +51,11 @@ export function MarketingNav() {
             aria-label="Toggle theme"
             className="flex h-8 w-8 items-center justify-center border border-[color:var(--border-default)] bg-[color:var(--bg-elevated)] text-[color:var(--text-secondary)] transition-colors duration-150 hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-primary)]"
           >
-            {theme === "dark" ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <span className="relative block h-[14px] w-[14px]">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" className="theme-toggle-icon theme-toggle-icon--light">
+                <path d="M7 1.5A5.5 5.5 0 1 0 12.5 7 5.5 5.5 0 0 0 7 1.5zm0 9.5A4 4 0 0 1 5.2 3.6 4 4 0 1 0 10.4 8.8 4 4 0 0 1 7 11z" fill="currentColor" />
+              </svg>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" className="theme-toggle-icon theme-toggle-icon--dark">
                 <circle cx="7" cy="7" r="3" fill="currentColor" />
                 <line x1="7" y1="0.5" x2="7" y2="2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 <line x1="7" y1="11.5" x2="7" y2="13.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
@@ -64,11 +66,7 @@ export function MarketingNav() {
                 <line x1="11.6" y1="2.4" x2="10.2" y2="3.8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 <line x1="3.8" y1="10.2" x2="2.4" y2="11.6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M7 1.5A5.5 5.5 0 1 0 12.5 7 5.5 5.5 0 0 0 7 1.5zm0 9.5A4 4 0 0 1 5.2 3.6 4 4 0 1 0 10.4 8.8 4 4 0 0 1 7 11z" fill="currentColor" />
-              </svg>
-            )}
+            </span>
           </button>
           <Link
             href="/app"

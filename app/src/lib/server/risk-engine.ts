@@ -296,9 +296,14 @@ async function persistRiskAudit(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sdk: any = await import("@0glabs/0g-ts-sdk");
     const ethersModule = await import("ethers");
-    const file = new sdk.MemData(
-      Buffer.from(JSON.stringify(entry, null, 2), "utf-8")
-    );
+    // 0G Flow contract requires a minimum of 1 full segment = 262144 bytes (256KB).
+    // Files smaller than DEFAULT_SEGMENT_SIZE cause the submit() tx to revert.
+    const MIN_SEGMENT_SIZE = 262144;
+    const raw = Buffer.from(JSON.stringify(entry, null, 2), "utf-8");
+    const padded = raw.length < MIN_SEGMENT_SIZE
+      ? Buffer.concat([raw, Buffer.alloc(MIN_SEGMENT_SIZE - raw.length)])
+      : raw;
+    const file = new sdk.MemData(padded);
     const [tree, treeError] = await file.merkleTree();
 
     if (treeError || !tree) {

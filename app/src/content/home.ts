@@ -10,7 +10,8 @@ import type { ProtocolMetric } from "@/types/view-model";
 export const heroContent = {
   eyebrow: "Community-Owned Risk Infrastructure",
   headline: "The house behind your multi-outcome position.",
-  deck: "Underlay is an onchain risk vault. Traders combine Polymarket outcomes into a single position. LPs collectively underwrite the risk and earn yield when the house wins.",
+  deck: "Underlay helps you bundle prediction market outcomes into one trade. Traders get a simpler way to take a position, and people who fund the pool can earn from the risk they back.",
+  supporting: "Built on Polymarket interaction, Underlay helps you move from a single trade to something broader and easier to manage.",
   primaryCta: { label: "Open App", href: "/app" },
   secondaryCta: { label: "Read Mechanics", href: "/protocol" },
 };
@@ -84,20 +85,41 @@ export const homeHighlights = [
 
 export const howItWorksSteps = [
   {
-    title: "Signal intake",
-    body: "Reference probabilities and resolution signals enter from Polymarket's CLOB API. Underlay does not run the market.",
+    step: "01",
+    title: "Market discovery",
+    body: "Trader picks outcomes from live Polymarket markets. Probabilities and resolution metadata come from the CLOB API — Underlay does not run the market.",
+    partners: ["Polymarket CLOB"],
   },
   {
-    title: "Risk inference",
-    body: "0G Compute scores the combined position. 0G Storage pins the audit payload to the underwriting decision.",
+    step: "02",
+    title: "AI risk scoring",
+    body: "The position is sent to a 0G Compute LLM node. It returns a risk tier, correlation score, stake limit, and reasoning flags. The full audit payload is pinned to 0G Storage — the merkle root is recorded onchain as a tamper-evident receipt.",
+    partners: ["0G Compute", "0G Storage"],
   },
   {
-    title: "Vault pricing",
-    body: "Vault utilisation, AI correlation factor, and config caps shape the final quote and payout ceiling.",
+    step: "03",
+    title: "Identity gate",
+    body: "Stakes above the protocol threshold require a World ID proof — verified onchain via the nullifier hash. One proof per action, replay-resistant. Prevents Sybil attacks on the reserve.",
+    partners: ["World ID"],
+    conditional: "stake > $5",
   },
   {
-    title: "Delayed settlement",
-    body: "Chainlink CRE respects risk-tier delay windows before reserve payout or stake sweep finalises onchain.",
+    step: "04",
+    title: "Position locked onchain",
+    body: "Stake transfers into the ERC-4626 vault. Legs are written to PositionBook and a risk-tier settlement timer starts in SettlementManager. Nothing else is required from the trader.",
+    partners: ["Base Sepolia"],
+  },
+  {
+    step: "05",
+    title: "Chainlink CRE resolves legs",
+    body: "The CRE workflow runs every minute on Chainlink's DON. It reads open legs from PositionBook, queries Polymarket CLOB for resolution, and cross-references crypto legs against Chainlink Price Feeds. Resolved legs are committed onchain via resolveLegs().",
+    partners: ["Chainlink CRE", "Chainlink Price Feeds"],
+  },
+  {
+    step: "06",
+    title: "Settlement executes",
+    body: "After all legs resolve, the risk-tier delay window runs: 30 s LOW · 1 m MEDIUM · 2 m HIGH. executeSettlement() fires — winning positions are paid from vault reserves, losing stakes sweep back as LP yield.",
+    partners: ["Chainlink CRE", "Base Sepolia"],
   },
 ];
 

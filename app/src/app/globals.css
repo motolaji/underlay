@@ -6,6 +6,17 @@ html {
   scroll-behavior: smooth;
 }
 
+.theme-toggle-icon {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+:root:not([data-theme="dark"]) .theme-toggle-icon--light,
+:root[data-theme="dark"] .theme-toggle-icon--dark {
+  display: block;
+}
+
 /* ─── Light theme (default) ─────────────────────────────────────── */
 :root {
   /* Backgrounds */

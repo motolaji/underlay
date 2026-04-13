@@ -115,6 +115,9 @@ export default function Home() {
               <p className="max-w-2xl text-base leading-8 text-[color:var(--text-secondary)] sm:text-lg">
                 {heroContent.deck}
               </p>
+              <p className="max-w-2xl text-sm leading-7 text-[color:var(--text-tertiary)]">
+                {heroContent.supporting}
+              </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
                   href={heroContent.primaryCta.href}
@@ -205,8 +208,8 @@ export default function Home() {
       <section className="section-shell space-y-6">
         <SectionMasthead
           eyebrow="How it works"
-          title="From market signal to onchain settlement — four steps."
-          body="Every step in the position lifecycle has a visible onchain or verifiable offchain counterpart. Nothing happens in an opaque database."
+          title="From market signal to onchain settlement."
+          body="Six steps, six partner integrations. Every part of the lifecycle has a verifiable onchain or cryptographic counterpart — nothing runs in an opaque database."
         />
         <HowItWorksBand steps={howItWorksSteps} />
       </section>

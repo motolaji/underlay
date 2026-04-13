@@ -565,23 +565,12 @@ export default function AppPositionsPage() {
                             <span className="font-mono text-[10px] uppercase tracking-wider text-[color:var(--text-tertiary)]">
                               Risk audit
                             </span>
-                            {auditProviders[row.riskAuditHash] === "0g-storage" ? (
-                              <a
-                                href={`https://storagescan-galileo.0g.ai/tx/${row.riskAuditHash}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-[10px] text-[color:var(--accent-blue)] hover:underline"
-                              >
-                                {shortenHash(row.riskAuditHash, 10, 8)} ↗
-                              </a>
-                            ) : (
-                              <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
-                                {shortenHash(row.riskAuditHash, 10, 8)}
-                              </span>
-                            )}
+                            <span className="font-mono text-[10px] text-[color:var(--text-secondary)]">
+                              {shortenHash(row.riskAuditHash, 10, 8)}
+                            </span>
                             {auditProviders[row.riskAuditHash] && (
-                              <span className="font-mono text-[10px] text-[color:var(--text-tertiary)]">
-                                ({auditProviders[row.riskAuditHash] === "0g-storage" ? "0G" : "local"})
+                              <span className={`font-mono text-[10px] ${auditProviders[row.riskAuditHash] === "0g-storage" ? "text-[color:var(--accent-blue)]" : "text-[color:var(--text-tertiary)]"}`}>
+                                {auditProviders[row.riskAuditHash] === "0g-storage" ? "0G" : "local"}
                               </span>
                             )}
                           </div>

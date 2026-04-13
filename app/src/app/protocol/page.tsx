@@ -49,8 +49,8 @@ export default function ProtocolPage() {
             <p className="data-label">What Underlay is not</p>
             <p className="mt-4 text-base leading-8 text-[color:var(--text-primary)]">
               Not a prediction market, not an offchain bookmaker, not a parlay
-              platform. Underlay does not set odds or run markets — Polymarket
-              does that. Underlay underwrites the combined exposure.
+              platform. Underlay does not set odds or run markets — prediction
+              markets do that. Underlay underwrites the combined exposure.
             </p>
           </article>
         </div>
@@ -84,7 +84,7 @@ export default function ProtocolPage() {
             <p className="data-label">Position lifecycle</p>
             <div className="mt-5 space-y-2.5">
               {[
-                "Trader selects outcomes from Polymarket markets via CLOB API.",
+                "Trader selects outcomes from prediction markets via CLOB API.",
                 "0G Compute scores position risk via AI inference. 0G Storage pins the audit payload.",
                 "Vault prices the combined position using utilisation, correlation factor, and config caps.",
                 "Position is locked with a quote and stake is transferred.",
