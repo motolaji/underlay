@@ -122,7 +122,7 @@ export function ProtocolFlowchart() {
           </span>
         </div>
 
-        {STEPS.map((step, i) => (
+        {STEPS.map((step) => (
           <div key={step.phase} className="flex w-full max-w-lg flex-col items-center">
             <Arrow tag={step.tag} />
 

@@ -368,7 +368,6 @@ export function CartDrawer() {
     }
   }, [
     address,
-    address,
     allowanceQuery,
     liabilityBlockedReason,
     parsedStake,
