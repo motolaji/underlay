@@ -38,9 +38,11 @@ export function buildRiskEngineSubmission({
     marketIds: selectedLegs.map((leg) => hashStringToBytes32(leg.marketId)),
     outcomes: selectedLegs.map((leg) => leg.outcomeIndex),
     lockedOdds: quote.legOdds.map(scaleOdds),
-    resolutionTimes: selectedLegs.map((leg) =>
-      BigInt(Math.floor(new Date(leg.closesAt).getTime() / 1000))
-    ),
+    resolutionTimes: selectedLegs.map((leg) => {
+      const ts = new Date(leg.closesAt).getTime();
+      if (isNaN(ts)) throw new Error(`Invalid resolution date for leg: ${leg.marketId}`);
+      return BigInt(Math.floor(ts / 1000));
+    }),
     stake: stakeRaw,
     combinedOdds: scaleOdds(quote.combinedOdds),
     riskTier: mapRiskTier(risk.riskTier),

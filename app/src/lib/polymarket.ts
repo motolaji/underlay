@@ -337,14 +337,16 @@ export function normalizeMarket(
   const volume = toNumber(market.volume);
   const riskBand = deriveRiskBand(liquidity, market.endDate);
 
+  const endDate = isValidDate(market.endDate) ? market.endDate : null;
+
   return {
     marketId: market.conditionId ?? market.id,
     slug: market.slug ?? market.id,
     question: market.question,
     description: market.description,
     category,
-    closesAt: market.endDate,
-    closesAtLabel: formatResolutionDate(market.endDate),
+    closesAt: endDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    closesAtLabel: formatResolutionDate(endDate ?? ""),
     note:
       market.description?.trim() ||
       "Live Polymarket signal routed through the CLOB API. Pricing and final quote remain Underlay-native.",
@@ -372,6 +374,12 @@ function deriveRiskBand(
   }
 
   return "Low";
+}
+
+function isValidDate(value: unknown): value is string {
+  if (!value || typeof value !== "string") return false;
+  const ts = new Date(value).getTime();
+  return !isNaN(ts);
 }
 
 function clampProbability(value: number) {
