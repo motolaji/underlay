@@ -231,7 +231,7 @@ The result is odds that are fair, transparent, and adjusted in real time to prot
 ### Clone the repo
 
 ```bash
-git clone https://github.com/your-username/underlay
+git clone https://github.com/motolaji/underlay
 cd underlay
 ```
 
@@ -367,11 +367,6 @@ Polymarket has billions in volume and highly liquid markets. Their prices repres
 
 ---
 
-## Built at
-
-ETHGlobal Cannes 2026
-
----
 
 ## License
 
